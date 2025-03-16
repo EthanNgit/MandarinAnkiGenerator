@@ -1,6 +1,11 @@
 package com.norbula.mingxue.modules.models
 
+import com.norbula.mingxue.modules.models.enums.ContextFrequency
+import com.norbula.mingxue.modules.models.enums.PartOfSpeech
 import jakarta.persistence.*
+import org.hibernate.annotations.CreationTimestamp
+import org.hibernate.annotations.UpdateTimestamp
+import java.time.LocalDateTime
 
 @Entity
 @Table(name = "word_contexts")
@@ -17,14 +22,24 @@ data class WordContext(
     val pinyin: String,
 
     @Column(nullable = false)
-    val partOfSpeech: String, // could split this into table
+    @Enumerated(EnumType.STRING)
+    val partOfSpeech: PartOfSpeech,
 
     @Column(nullable = false)
     val usage: String,
 
     @Column(nullable = false)
-    val generationCount: String,
+    val generationCount: Int,
 
     @Column(nullable = false)
-    val frequency: String, // could be an enum
+    @Enumerated(EnumType.STRING)
+    val frequency: ContextFrequency,
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    val createdAt: LocalDateTime? = null,
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    val updatedAt: LocalDateTime? = null
 )

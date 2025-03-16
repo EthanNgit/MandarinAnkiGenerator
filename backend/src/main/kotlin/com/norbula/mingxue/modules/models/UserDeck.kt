@@ -1,6 +1,9 @@
 package com.norbula.mingxue.modules.models
 
 import jakarta.persistence.*
+import org.hibernate.annotations.CreationTimestamp
+import org.hibernate.annotations.UpdateTimestamp
+import java.time.LocalDateTime
 
 @Entity
 @Table(name = "user_decks")
@@ -20,5 +23,13 @@ data class UserDeck(
     val description: String,
 
     @Column(nullable = false)
-    val isPublic: Boolean,
+    val isPublic: Boolean = true,
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    val createdAt: LocalDateTime? = null,
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    val updatedAt: LocalDateTime? = null
 )
