@@ -1,0 +1,28 @@
+services:
+  backend:
+    container_name: mingxue-server
+    image: mingxue-backend
+    environment:
+      - MD_URL=${MD_URL}
+      - MD_USER=${MD_USER}
+      - MD_PASSWORD=${MD_PASSWORD}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+  mariadb:
+    container_name: mingxue-database-mariadb
+    image: mariadb:latest
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MD_ROOT_PASSWORD}
+      - MYSQL_DATABASE=mdb
+      - MYSQL_USER=${MD_USER}
+      - MYSQL_PASSWORD=${MD_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  mariadb_data:

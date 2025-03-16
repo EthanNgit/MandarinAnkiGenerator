@@ -13,6 +13,7 @@ data class GrammarPointSentence(
     @JoinColumn(name = "grammar_point_id", nullable = false)
     val grammarPoint: GrammarPoint,
 
-    @Column(nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "sentence_id", nullable = false)
     val sentence: Sentence
 )
