@@ -1,1 +1,1 @@
-rootProject.name = "decks"
+rootProject.name = "mingxue"

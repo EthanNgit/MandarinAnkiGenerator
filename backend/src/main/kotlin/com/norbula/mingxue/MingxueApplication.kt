@@ -1,11 +1,11 @@
-package com.norbula.decks
+package com.norbula.mingxue
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 @SpringBootApplication
-class DecksApplication
+class MingxueApplication
 
 fun main(args: Array<String>) {
-	runApplication<DecksApplication>(*args)
+	runApplication<MingxueApplication>(*args)
 }
