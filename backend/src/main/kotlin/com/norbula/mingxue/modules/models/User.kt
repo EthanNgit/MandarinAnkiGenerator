@@ -25,4 +25,14 @@ data class User(
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     val updatedAt: LocalDateTime? = null
+) {
+    fun toDTO(): UserDTO = UserDTO(
+        email = this.email,
+        authToken = this.authToken
+    )
+}
+
+data class UserDTO(
+    val email: String,
+    val authToken: String
 )

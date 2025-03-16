@@ -23,6 +23,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-web")
+	implementation("org.springframework.boot:spring-boot-starter-webflux")
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	runtimeOnly("org.mariadb.jdbc:mariadb-java-client")
@@ -30,6 +31,17 @@ dependencies {
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testImplementation("org.springframework.security:spring-security-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+	// Firebase admin
+	implementation("com.google.firebase:firebase-admin:9.4.0")
+
+	// Elastic search
+	implementation("org.springframework.data:spring-data-elasticsearch:5.3.0")
+	implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.17.26")
+
+	// JWT
+	implementation("com.auth0:java-jwt:4.2.1")
+
 }
 
 kotlin {
