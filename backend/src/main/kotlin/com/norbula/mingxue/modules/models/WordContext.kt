@@ -26,14 +26,14 @@ data class WordContext(
     val partOfSpeech: PartOfSpeech,
 
     @Column(nullable = false)
-    val usage: String,
+    val usageSentence: String,
 
     @Column(nullable = false)
     val generationCount: Int,
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    val frequency: ContextFrequency,
+    val frequency: ContextFrequency = ContextFrequency.Rare,
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
