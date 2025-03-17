@@ -6,7 +6,10 @@ import org.hibernate.annotations.UpdateTimestamp
 import java.time.LocalDateTime
 
 @Entity
-@Table(name = "user_decks")
+@Table(
+    name = "user_decks",
+    uniqueConstraints = [UniqueConstraint(columnNames = ["user_id", "name"])]
+)
 data class UserDeck(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

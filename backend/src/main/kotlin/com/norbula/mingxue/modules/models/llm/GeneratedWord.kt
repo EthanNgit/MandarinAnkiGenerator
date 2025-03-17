@@ -8,4 +8,5 @@ data class GeneratedWord (
     val translation: String,
     val simpleSentence: String,
     val usageFrequency: String,
+    val tags: List<String>,
 )

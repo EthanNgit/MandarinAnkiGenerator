@@ -7,4 +7,6 @@ import java.util.Optional
 
 @Repository
 interface WordRepository: CrudRepository<Word, Int> {
+    fun findBySimplifiedWord(simplifiedWord: String): Optional<Word>
+    fun findBySimplifiedWordIn(simplifiedWords: List<String>): List<Word>
 }

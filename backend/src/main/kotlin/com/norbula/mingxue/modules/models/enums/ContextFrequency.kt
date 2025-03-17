@@ -1,3 +1,3 @@
 package com.norbula.mingxue.modules.models.enums
 
-enum class ContextFrequency { Common, Rare }
+enum class ContextFrequency { Frequent, Periodic, Infrequent }

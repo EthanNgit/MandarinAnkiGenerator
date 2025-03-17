@@ -33,7 +33,7 @@ data class WordContext(
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    val frequency: ContextFrequency = ContextFrequency.Rare,
+    val frequency: ContextFrequency = ContextFrequency.Infrequent,
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
