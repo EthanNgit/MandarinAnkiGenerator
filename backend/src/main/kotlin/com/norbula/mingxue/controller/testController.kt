@@ -1,6 +1,7 @@
 package com.norbula.mingxue.controller
 
 import com.norbula.mingxue.modules.models.Word
+import com.norbula.mingxue.modules.models.WordContext
 import com.norbula.mingxue.modules.models.llm.GeneratedWord
 import com.norbula.mingxue.service.GenService
 import org.slf4j.LoggerFactory
@@ -22,11 +23,11 @@ class testController(
     fun createWords(
         @RequestParam amount: Int = 5,
         @RequestParam topic: String = "verbs"
-    ): ResponseEntity<List<Word>> {
+    ): ResponseEntity<List<WordContext>> {
         logger.debug("method called")
         val generatedWords = genService.CreateWords(amount, topic)
 
-        logger.debug("Generated $amount words about $topic with values ${generatedWords.map { it -> it.simplifiedWord }}")
+        logger.debug("Generated $amount words about $topic with values ${generatedWords.map { it -> it.word.simplifiedWord }}")
         return ResponseEntity(generatedWords, HttpStatus.CREATED)
     }
 }
