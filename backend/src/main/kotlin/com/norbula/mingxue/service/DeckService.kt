@@ -4,16 +4,20 @@ import com.norbula.mingxue.exceptions.UserDoesNotExist
 import com.norbula.mingxue.modules.models.UserDeck
 import com.norbula.mingxue.modules.models.UserDeckWord
 import com.norbula.mingxue.repository.UserDeckRepository
+import com.norbula.mingxue.repository.UserDeckWordRepository
 import com.norbula.mingxue.repository.UserRepository
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.stereotype.Service
 import java.security.InvalidParameterException
 
+@Service
 class DeckService(
     @Autowired private val deckRepository: UserDeckRepository,
     @Autowired private val userRepository: UserRepository,
+    @Autowired private val userDeckWordRepository: UserDeckWordRepository,
     @Autowired private val genService: GenService
 ) {
-    fun CreateDeck(authToken: String, deckName: String, deckTopic: String, publicDeck: Boolean = true) {
+    fun CreateDeck(authToken: String, deckName: String, deckTopic: String, publicDeck: Boolean = true): UserDeck {
         // validate parameters before query
         if (deckName.length > 100) {
             throw InvalidParameterException() // todo: add exception
@@ -26,7 +30,10 @@ class DeckService(
         val user = userRepository.findByAuthToken(authToken).orElseThrow { UserDoesNotExist() }
 
         // get name and desc/topic and if public
-        val deckNameValid = deckRepository.existsByUserAndName(user, deckName)
+        val deckNameUsed = deckRepository.existsByUserAndName(user, deckName)
+        if (deckNameUsed) {
+            throw InvalidParameterException() // todo: add exception
+        }
 
         // check if min amount of words already exist
         // todo: add prechecking for words to deck service
@@ -42,9 +49,16 @@ class DeckService(
         )
 
         val deck = deckRepository.save(toCreateDeck)
-        val deckWords: MutableList<UserDeckWord> = mutableListOf()
+        val toSaveDeckWords: MutableList<UserDeckWord> = mutableListOf()
         words.forEach { word ->
-//            deckWords.add(UserDeckWord())
+            toSaveDeckWords.add(UserDeckWord(
+                deck = deck,
+                wordContext = word
+            ))
         }
+
+        val deckWords = userDeckWordRepository.saveAll(toSaveDeckWords)
+
+        return deck
     }
 }
