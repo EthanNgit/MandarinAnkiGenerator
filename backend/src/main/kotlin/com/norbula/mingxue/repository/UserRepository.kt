@@ -1,6 +1,6 @@
 package com.norbula.mingxue.repository
 
-import com.norbula.mingxue.modules.models.User
+import com.norbula.mingxue.models.User
 import org.springframework.data.repository.CrudRepository
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional

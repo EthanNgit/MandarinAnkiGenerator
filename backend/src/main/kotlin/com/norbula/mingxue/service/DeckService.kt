@@ -1,12 +1,14 @@
 package com.norbula.mingxue.service
 
 import com.norbula.mingxue.exceptions.UserDoesNotExist
-import com.norbula.mingxue.modules.models.UserDeck
-import com.norbula.mingxue.modules.models.UserDeckWord
+import com.norbula.mingxue.models.UserDeck
+import com.norbula.mingxue.models.UserDeckWord
 import com.norbula.mingxue.repository.UserDeckRepository
 import com.norbula.mingxue.repository.UserDeckWordRepository
 import com.norbula.mingxue.repository.UserRepository
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import java.security.InvalidParameterException
 
@@ -15,10 +17,14 @@ class DeckService(
     @Autowired private val deckRepository: UserDeckRepository,
     @Autowired private val userRepository: UserRepository,
     @Autowired private val userDeckWordRepository: UserDeckWordRepository,
-    @Autowired private val genService: GenService
+    @Autowired private val genService: GenService,
+    @Value("\${norbula.mingxue.default.decksize}") private val defaultDeckSize: Int
 ) {
-    fun CreateDeck(authToken: String, deckName: String, deckTopic: String, publicDeck: Boolean = true): UserDeck {
+    private val logger = LoggerFactory.getLogger(DeckService::class.java)
+
+    fun createDeck(authToken: String, deckName: String, deckTopic: String, publicDeck: Boolean = true): UserDeck {
         // validate parameters before query
+        logger.debug("Default deck size set to $defaultDeckSize")
         if (deckName.length > 100) {
             throw InvalidParameterException() // todo: add exception
         }
@@ -39,7 +45,7 @@ class DeckService(
         // todo: add prechecking for words to deck service
 
         // otherwise generate words
-        val words = genService.CreateWords(5, deckTopic)
+        val words = genService.CreateWords(defaultDeckSize, deckTopic)
 
         val toCreateDeck = UserDeck(
             user = user,
@@ -51,10 +57,12 @@ class DeckService(
         val deck = deckRepository.save(toCreateDeck)
         val toSaveDeckWords: MutableList<UserDeckWord> = mutableListOf()
         words.forEach { word ->
-            toSaveDeckWords.add(UserDeckWord(
+            toSaveDeckWords.add(
+                UserDeckWord(
                 deck = deck,
                 wordContext = word
-            ))
+            )
+            )
         }
 
         val deckWords = userDeckWordRepository.saveAll(toSaveDeckWords)

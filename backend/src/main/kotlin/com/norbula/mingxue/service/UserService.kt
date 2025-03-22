@@ -3,9 +3,9 @@ package com.norbula.mingxue.service
 import com.google.firebase.auth.FirebaseAuth
 import com.norbula.mingxue.exceptions.UserAlreadyExistsException
 import com.norbula.mingxue.exceptions.UserDoesNotExist
-import com.norbula.mingxue.modules.models.User
-import com.norbula.mingxue.modules.models.UserDTO
-import com.norbula.mingxue.modules.models.enums.Role
+import com.norbula.mingxue.models.User
+import com.norbula.mingxue.models.UserDTO
+import com.norbula.mingxue.models.enums.Role
 import com.norbula.mingxue.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired

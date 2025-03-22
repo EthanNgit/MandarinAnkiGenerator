@@ -1,7 +1,7 @@
 package com.norbula.mingxue.repository
 
-import com.norbula.mingxue.modules.models.Word
-import com.norbula.mingxue.modules.models.WordContext
+import com.norbula.mingxue.models.Word
+import com.norbula.mingxue.models.WordContext
 import org.springframework.data.repository.CrudRepository
 import org.springframework.stereotype.Repository
 

@@ -1,11 +1,11 @@
 package com.norbula.mingxue.controller
 
-import com.norbula.mingxue.modules.models.UserDeck
-import com.norbula.mingxue.modules.models.Word
-import com.norbula.mingxue.modules.models.WordContext
-import com.norbula.mingxue.modules.models.llm.GeneratedWord
+import com.norbula.mingxue.models.UserDeck
+import com.norbula.mingxue.models.WordContext
+import com.norbula.mingxue.models.WordDTO
 import com.norbula.mingxue.service.DeckService
 import com.norbula.mingxue.service.GenService
+import com.norbula.mingxue.service.documents.WordTaggingService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
@@ -15,13 +15,13 @@ import org.springframework.security.core.context.SecurityContext
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.web.bind.annotation.*
-import reactor.core.publisher.Mono
 
 @RestController
 @RequestMapping("/api/v1/test")
 class testController(
     @Autowired private val genService: GenService,
-    @Autowired private val deckService: DeckService
+    @Autowired private val deckService: DeckService,
+    @Autowired private val wordTaggingService: WordTaggingService
 ) {
     private val logger = LoggerFactory.getLogger(testController::class.java)
 
@@ -37,6 +37,17 @@ class testController(
         return ResponseEntity(generatedWords, HttpStatus.CREATED)
     }
 
+    @GetMapping("/find")
+    fun findWords(
+        @RequestParam query: String = "",
+        @RequestParam pos: String = ""
+    ): ResponseEntity<List<WordDTO>> {
+        logger.debug("findWords: method called")
+        val foundWords = wordTaggingService.searchWords(query, pos)
+
+        return ResponseEntity(foundWords, HttpStatus.OK)
+    }
+
     @PostMapping("/deck")
     fun createDeck(
         @RequestParam deckName: String = "Deck 1",
@@ -44,8 +55,8 @@ class testController(
     ): ResponseEntity<UserDeck> {
         val token = getAuthTokenFromJwt(SecurityContextHolder.getContext())
 
-        logger.debug("createDeck: method called")
-        val deck = deckService.CreateDeck(token, deckName, deckTopic)
+        logger.debug("createDeck: method called deck updated")
+        val deck = deckService.createDeck(token, deckName, deckTopic)
 
         logger.debug("createDeck: Generated deck about $deckTopic")
         return ResponseEntity(deck, HttpStatus.CREATED)

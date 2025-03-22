@@ -1,6 +1,6 @@
 package com.norbula.mingxue.controller
 
-import com.norbula.mingxue.modules.models.UserDTO
+import com.norbula.mingxue.models.UserDTO
 import com.norbula.mingxue.service.UserService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired

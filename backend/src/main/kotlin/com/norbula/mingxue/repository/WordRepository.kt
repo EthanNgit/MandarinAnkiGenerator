@@ -1,6 +1,6 @@
 package com.norbula.mingxue.repository
 
-import com.norbula.mingxue.modules.models.Word
+import com.norbula.mingxue.models.Word
 import org.springframework.data.repository.CrudRepository
 import org.springframework.stereotype.Repository
 import java.util.Optional

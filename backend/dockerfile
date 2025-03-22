@@ -10,8 +10,8 @@ RUN ./gradlew clean build -x test
 FROM amazoncorretto:21-alpine-jdk
 WORKDIR /app
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Install required dependencies
+RUN apk add --no-cache curl openssl bash libc6-compat
 
 COPY --from=builder /app/build/libs/mingxue-0.0.1-SNAPSHOT.jar backend.jar
 

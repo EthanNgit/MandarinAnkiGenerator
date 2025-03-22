@@ -1,16 +1,17 @@
 package com.norbula.mingxue.service
 
-import com.norbula.mingxue.modules.models.Word
-import com.norbula.mingxue.modules.models.WordContext
-import com.norbula.mingxue.modules.models.WordTranslation
-import com.norbula.mingxue.modules.models.enums.ContextFrequency
-import com.norbula.mingxue.modules.models.enums.PartOfSpeech
-import com.norbula.mingxue.modules.models.llm.GeneratedWord
-import com.norbula.mingxue.modules.models.llm.GrammarGenerator
+import com.norbula.mingxue.models.Word
+import com.norbula.mingxue.models.WordContext
+import com.norbula.mingxue.models.WordTranslation
+import com.norbula.mingxue.models.enums.ContextFrequency
+import com.norbula.mingxue.models.enums.PartOfSpeech
+import com.norbula.mingxue.models.ai.grammar.GeneratedWord
+import com.norbula.mingxue.service.ai.grammar.GrammarGenerator
 import com.norbula.mingxue.repository.SentenceRepository
 import com.norbula.mingxue.repository.WordContextRepository
 import com.norbula.mingxue.repository.WordRepository
 import com.norbula.mingxue.repository.WordTranslationRepository
+import com.norbula.mingxue.service.documents.WordTaggingService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -22,13 +23,14 @@ class GenService (
     @Autowired private val wordContextRepository: WordContextRepository,
     @Autowired private val wordTranslationRepository: WordTranslationRepository,
     @Autowired private val sentenceRepository: SentenceRepository,
+    @Autowired private val wordTaggingService: WordTaggingService,
     @Autowired private val generators: Map<String, GrammarGenerator>
 ) {
     private val logger = LoggerFactory.getLogger(GenService::class.java)
 
     fun CreateWords(amount: Int, topic: String): List<WordContext> {
         // pick generation method
-        val generator = generators["openAi"] ?: throw Error()
+        val generator = generators["grammar_openAi"] ?: throw Error()
 
         // for batch db requests
         val newWords = mutableListOf<Word>()
@@ -108,8 +110,9 @@ class GenService (
 
                     var matchedContext: WordContext? = null
                     for (context in existingContexts) {
-                        logger.debug("Checking context: ${context.usageSentence}, GPT result: ${gptResults[index]}")
-                        if (gptResults[index]) {
+                        logger.debug("Checking context: ${context.usageSentence}, GPT result: ${gptResults.getOrNull(index)}")
+
+                        if (gptResults.getOrNull(index) != null) {
                             matchedContext = context.copy(generationCount = context.generationCount + 1)
                             newContexts.add(matchedContext)
                             resultContexts.add(matchedContext)
@@ -125,10 +128,10 @@ class GenService (
                         matchedContext = WordContext(
                             word = word,
                             pinyin = generatedWord.pinyin,
-                            partOfSpeech = PartOfSpeech.valueOf(generatedWord.partOfSpeech),
+                            partOfSpeech = PartOfSpeech.valueOf(generatedWord.partOfSpeech.lowercase()),
                             usageSentence = generatedWord.simpleSentence,
                             generationCount = 1,
-                            frequency = ContextFrequency.valueOf(generatedWord.usageFrequency)
+                            frequency = ContextFrequency.valueOf(generatedWord.usageFrequency.lowercase())
                         ).also { newContexts.add(it); resultContexts.add(it) }
                         logger.debug("Created new context for word: ${word.simplifiedWord}, context: ${matchedContext.usageSentence}")
                     }
@@ -164,8 +167,11 @@ class GenService (
             }
             logger.debug("Took garbage section of algorithm $garbageTimeElapsed ms to complete")
 
-
-            // todo: add tagging
+            // TODO: add tagging
+            // could optimize this...
+//            generatedWords.forEach {
+//                wordTaggingService.processGeneratedWord(it)
+//            }
         }
         logger.debug("Took entire function $wholeTimeElapsed ms to complete")
         logger.debug("Took entire function minus bottle cap ${wholeTimeElapsed - generationTimeElapsed} ms to complete")

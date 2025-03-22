@@ -37,12 +37,11 @@ dependencies {
 	implementation("com.google.firebase:firebase-admin:9.4.0")
 
 	// Elastic search
-	implementation("org.springframework.data:spring-data-elasticsearch:5.3.0")
-	implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.17.26")
+	implementation("org.springframework.data:spring-data-elasticsearch:5.4.4")
+	implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.17.28")
 
 	// JWT
 	implementation("com.auth0:java-jwt:4.2.1")
-
 }
 
 kotlin {
