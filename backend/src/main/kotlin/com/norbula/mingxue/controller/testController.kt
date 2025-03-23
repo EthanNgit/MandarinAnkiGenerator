@@ -50,7 +50,8 @@ class testController(
 
     data class CreateDeckRequest(
         val deckName: String = "Deck 1",
-        val deckTopic: String = "verbs"
+        val deckTopic: String = "verbs",
+        val deckSize: Int = 5,
     )
 
     @PostMapping("/deck")
@@ -60,7 +61,7 @@ class testController(
         val token = getAuthTokenFromJwt(SecurityContextHolder.getContext())
 
         logger.debug("createDeck: method called deck")
-        val deck = deckService.createDeck(token, body.deckName, body.deckTopic)
+        val deck = deckService.createDeck(token, body.deckName, body.deckTopic, body.deckSize)
 
         logger.debug("createDeck: Generated deck about ${body.deckTopic}")
         return ResponseEntity(deck, HttpStatus.CREATED)

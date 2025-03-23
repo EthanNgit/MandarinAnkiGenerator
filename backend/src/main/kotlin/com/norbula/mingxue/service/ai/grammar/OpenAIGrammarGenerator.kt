@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 data class OpenAIResponse(
@@ -40,9 +41,11 @@ class OpenAIGrammarGenerator(
 
     override fun generateWords(amount: Int, topic: String): List<GeneratedWord> {
         val words = generateWordList(amount, topic)
-        val res = mutableListOf<GeneratedWord>()
+        if (words.isEmpty()) return emptyList()
+        
+        val batches = words.chunked(maxWordDetailChunkSize)
 
-        words.chunked(maxWordDetailChunkSize).forEach { batch ->
+        val requests = batches.map { batch ->
             logger.debug("THE ARRAY IS ${batch.joinToString(", ", "[", "]")}")
             val requestBody = mapOf(
                 "model" to "gpt-4o-mini",
@@ -65,10 +68,10 @@ class OpenAIGrammarGenerator(
                     Words: ${batch.joinToString(", ", "[", "]")}
                 """.trimIndent())
                 ),
-                "temperature" to 0.7
+                "temperature" to 0.9
             )
 
-            res.addAll(webClient.post()
+            webClient.post()
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(OpenAIResponse::class.java)
@@ -84,11 +87,13 @@ class OpenAIGrammarGenerator(
                     logger.error("Error during word generation", e)
                     Mono.just(emptyList())
                 }
-                .block()
-                .orEmpty())
         }
 
-        return res
+        return Flux.merge(requests)
+            .collectList()
+            .block()
+            ?.flatten()
+            ?: emptyList()
     }
 
     private fun generateWordList(amount: Int, topic: String): List<String> {
@@ -181,9 +186,8 @@ class OpenAIGrammarGenerator(
         val results = (response?.get("choices") as? List<Map<String, Any>>)
             ?.mapNotNull { it["message"] as? Map<*, *> }
             ?.mapNotNull { it["content"] as? String }
-            ?.mapNotNull {
+            ?.map {
                 try {
-                    // Parse the stringified JSON array into a List<Boolean>
                     jacksonObjectMapper().readValue(it, List::class.java) as List<Boolean>
                 } catch (e: Exception) {
                     logger.error("Error parsing response content", e)
@@ -193,14 +197,13 @@ class OpenAIGrammarGenerator(
             ?.flatten() // Flatten in case the list is nested
             ?: List(comparisons.size) { false }
 
-        logger.debug("Inspected contexts of ${comparisons.size} words with results $results")
+        logger.debug("Inspected contexts of {} words with results {}", comparisons.size, results)
         return results
     }
 
     private fun buildBatchMessages(comparisons: List<Triple<String, String, String>>): List<Map<String, String>> {
         val systemMessage = mapOf("role" to "system", "content" to "You only output true or false values as a JSON array: [true, false, ...] in the same order given. Don't include explanations.")
 
-        // Format the user messages based on the comparisons
         val userMessages = comparisons.mapIndexed { ind, comparison ->
             mapOf("role" to "user", "content" to """
             ${ind + 1}. Is the word "${comparison.first}" the same word based on context in:

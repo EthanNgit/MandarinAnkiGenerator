@@ -23,7 +23,7 @@ class DeckService(
 ) {
     private val logger = LoggerFactory.getLogger(DeckService::class.java)
 
-    fun createDeck(authToken: String, deckName: String, deckTopic: String, publicDeck: Boolean = true): UserDeck {
+    fun createDeck(authToken: String, deckName: String, deckTopic: String, deckSize: Int = defaultDeckSize, publicDeck: Boolean = true): UserDeck {
         // validate parameters before query
         if (deckName.length > 100) {
             throw InvalidParameterException() // todo: add exception
@@ -45,7 +45,7 @@ class DeckService(
         // todo: add prechecking for words to deck service
 
         // otherwise generate words
-        val words = genService.CreateWords(defaultDeckSize, deckTopic)
+        val words = genService.CreateWords(deckSize, deckTopic)
 
         val toCreateDeck = UserDeck(
             user = user,
