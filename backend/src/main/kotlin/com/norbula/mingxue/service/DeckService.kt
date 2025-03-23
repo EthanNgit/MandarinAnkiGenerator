@@ -9,6 +9,7 @@ import com.norbula.mingxue.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 import java.security.InvalidParameterException
 
@@ -24,7 +25,6 @@ class DeckService(
 
     fun createDeck(authToken: String, deckName: String, deckTopic: String, publicDeck: Boolean = true): UserDeck {
         // validate parameters before query
-        logger.debug("Default deck size set to $defaultDeckSize")
         if (deckName.length > 100) {
             throw InvalidParameterException() // todo: add exception
         }

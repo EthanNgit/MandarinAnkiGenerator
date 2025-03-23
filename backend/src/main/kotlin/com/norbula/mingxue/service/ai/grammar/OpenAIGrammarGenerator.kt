@@ -26,7 +26,9 @@ data class Message(
 
 @Service("grammar_openAi")
 class OpenAIGrammarGenerator(
-    @Value("\${openai.api.key}") private val openAiApiKey: String
+    @Value("\${openai.api.key}") private val openAiApiKey: String,
+    @Value("\${norbula.mingxue.default.generative.max.wordlist}") private val maxWordListSize: Int,
+    @Value("\${norbula.mingxue.default.generative.max.worddetail}") private val maxWordDetailChunkSize: Int
 ): GrammarGenerator {
     private val logger = LoggerFactory.getLogger(OpenAIGrammarGenerator::class.java)
 
@@ -37,14 +39,17 @@ class OpenAIGrammarGenerator(
         .build()
 
     override fun generateWords(amount: Int, topic: String): List<GeneratedWord> {
-        val generateAmount = amount.coerceAtMost(20)
+        val words = generateWordList(amount, topic)
+        val res = mutableListOf<GeneratedWord>()
 
-        val requestBody = mapOf(
-            "model" to "gpt-4o-mini",
-            "messages" to listOf(
-                mapOf("role" to "system", "content" to "You only output JSON. Dont include any explanations or introductions."),
-                mapOf("role" to "user", "content" to """
-                    Generate $generateAmount Mandarin words about "$topic" in this exact JSON array format:
+        words.chunked(maxWordDetailChunkSize).forEach { batch ->
+            logger.debug("THE ARRAY IS ${batch.joinToString(", ", "[", "]")}")
+            val requestBody = mapOf(
+                "model" to "gpt-4o-mini",
+                "messages" to listOf(
+                    mapOf("role" to "system", "content" to "You only output JSON. Dont include any explanations or introductions."),
+                    mapOf("role" to "user", "content" to """
+                    Fill in the details of the given Mandarin words in the context of "$topic" in this exact JSON array format:
                     [
                         {
                             "simplifiedWord": "...",
@@ -56,7 +61,52 @@ class OpenAIGrammarGenerator(
                             "usageFrequency": "<one of: Frequent, Periodic, Infrequent>",
                             "tags": ["tag1", "tag2", "tag3"]  // Add tags here for searchability
                         }
-                    ]
+                    ].
+                    Words: ${batch.joinToString(", ", "[", "]")}
+                """.trimIndent())
+                ),
+                "temperature" to 0.7
+            )
+
+            res.addAll(webClient.post()
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(OpenAIResponse::class.java)
+                .map { response ->
+                    val contentJson = response.choices.firstOrNull()?.message?.content ?: "[]"
+                    logger.debug("Raw GPT Response: {}", contentJson)  // Add this for debugging
+
+                    val jsonNode: JsonNode = jacksonObjectMapper().readTree(contentJson)
+
+                    jacksonObjectMapper().convertValue(jsonNode, object : TypeReference<List<GeneratedWord>>() {})
+                }
+                .onErrorResume { e ->
+                    logger.error("Error during word generation", e)
+                    Mono.just(emptyList())
+                }
+                .block()
+                .orEmpty())
+        }
+
+        return res
+    }
+
+    private fun generateWordList(amount: Int, topic: String): List<String> {
+        val generateAmount = amount.coerceAtMost(maxWordListSize)
+        val objectMapper = jacksonObjectMapper()
+
+        val requestBody = mapOf(
+            "model" to "gpt-4o-mini",
+            "messages" to listOf(
+                mapOf("role" to "system", "content" to "You only output JSON. Dont include any explanations or introductions."),
+                mapOf("role" to "user", "content" to """
+                    Generate exactly $generateAmount Unique Mandarin words about "$topic" in this exact JSON array format:
+                [
+                    \"word1\",
+                    \"word2\",
+                    \"word3\",
+                    ...
+                ]
                 """.trimIndent())
             ),
             "temperature" to 0.7
@@ -68,15 +118,13 @@ class OpenAIGrammarGenerator(
             .bodyToMono(OpenAIResponse::class.java)
             .map { response ->
                 val contentJson = response.choices.firstOrNull()?.message?.content ?: "[]"
-                logger.debug("Raw GPT Response: {}", contentJson)  // Add this for debugging
+                logger.debug("Raw GPT Response: {}", contentJson)
 
-
-                val jsonNode: JsonNode = jacksonObjectMapper().readTree(contentJson)
-
-                jacksonObjectMapper().convertValue(jsonNode, object : TypeReference<List<GeneratedWord>>() {})
+                val jsonNode: JsonNode = objectMapper.readTree(contentJson)
+                objectMapper.convertValue(jsonNode, object : TypeReference<List<String>>() {}).distinct()
             }
             .onErrorResume { e ->
-                logger.error("Error during word generation", e)
+                logger.error("Error during word list generation", e)
                 Mono.just(emptyList())
             }
             .block()
@@ -92,7 +140,7 @@ class OpenAIGrammarGenerator(
             "model" to "gpt-4o-mini",
             "messages" to listOf(
                 mapOf("role" to "system", "content" to "You only output true or false. Dont include any explanations or introductions."),
-                mapOf("role" to "user", "content" to "$word is used the same in \"$str1\" and \"$str2\"?".trimIndent())
+                mapOf("role" to "user", "content" to "is \"$word\" the same word based on context in \"$str1\" and \"$str2\"?".trimIndent())
             )
         )
 
@@ -116,6 +164,8 @@ class OpenAIGrammarGenerator(
     }
 
     override fun areWordsSameBasedOnContextBatch(comparisons: List<Triple<String, String, String>>): List<Boolean> {
+        if (comparisons.isEmpty()) return emptyList()
+
         val requestBody = mapOf(
             "model" to "gpt-4o-mini",
             "messages" to buildBatchMessages(comparisons)
@@ -127,19 +177,35 @@ class OpenAIGrammarGenerator(
             .bodyToMono(Map::class.java)
             .block()
 
+        logger.debug("Debug for context batching: $response")
         val results = (response?.get("choices") as? List<Map<String, Any>>)
             ?.mapNotNull { it["message"] as? Map<*, *> }
             ?.mapNotNull { it["content"] as? String }
-            ?.map { it.trim().lowercase() == "true" }
+            ?.mapNotNull {
+                try {
+                    // Parse the stringified JSON array into a List<Boolean>
+                    jacksonObjectMapper().readValue(it, List::class.java) as List<Boolean>
+                } catch (e: Exception) {
+                    logger.error("Error parsing response content", e)
+                    listOf(false)  // Default to false in case of parsing error
+                }
+            }
+            ?.flatten() // Flatten in case the list is nested
             ?: List(comparisons.size) { false }
 
+        logger.debug("Inspected contexts of ${comparisons.size} words with results $results")
         return results
     }
 
     private fun buildBatchMessages(comparisons: List<Triple<String, String, String>>): List<Map<String, String>> {
-        val systemMessage = mapOf("role" to "system", "content" to "You only output true or false. Don't include explanations.")
-        val userMessages = comparisons.map {
-            mapOf("role" to "user", "content" to "${it.first} is used the same in \"${it.second}\" and \"${it.third}\"?")
+        val systemMessage = mapOf("role" to "system", "content" to "You only output true or false values as a JSON array: [true, false, ...] in the same order given. Don't include explanations.")
+
+        // Format the user messages based on the comparisons
+        val userMessages = comparisons.mapIndexed { ind, comparison ->
+            mapOf("role" to "user", "content" to """
+            ${ind + 1}. Is the word "${comparison.first}" the same word based on context in:
+            "${comparison.second}" and "${comparison.third}"?
+        """.trimIndent())
         }
 
         return listOf(systemMessage) + userMessages

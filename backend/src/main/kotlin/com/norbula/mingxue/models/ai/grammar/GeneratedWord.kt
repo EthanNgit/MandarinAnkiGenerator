@@ -1,5 +1,8 @@
 package com.norbula.mingxue.models.ai.grammar
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class GeneratedWord (
     val simplifiedWord: String,
     val traditionalWord: String,

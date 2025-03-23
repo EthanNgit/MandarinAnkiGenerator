@@ -86,9 +86,11 @@ class GenService (
             // based on the collected contexts for the words, compare if they are the same
             // it will return in same order a boolean list, so if the first word's contexts
             // do not match the first entry will be false, and vice versa
-            var gptResults: List<Boolean>
+            var gptResults: List<Boolean> = emptyList()
             val genTimeElapsed2 = measureTimeMillis {
-                gptResults = generator.areWordsSameBasedOnContextBatch(contextComparisons)
+                if (contextComparisons.isNotEmpty()) {
+                    gptResults = generator.areWordsSameBasedOnContextBatch(contextComparisons)
+                }
             }
             logger.debug("Checked contexts for similarity in $genTimeElapsed2 ms, with results: $gptResults")
             generationTimeElapsed += genTimeElapsed2
@@ -112,7 +114,8 @@ class GenService (
                     for (context in existingContexts) {
                         logger.debug("Checking context: ${context.usageSentence}, GPT result: ${gptResults.getOrNull(index)}")
 
-                        if (gptResults.getOrNull(index) != null) {
+                        val valid = gptResults.getOrNull(index)
+                        if (valid != null && valid != false) {
                             matchedContext = context.copy(generationCount = context.generationCount + 1)
                             newContexts.add(matchedContext)
                             resultContexts.add(matchedContext)
