@@ -9,7 +9,10 @@ data class GeneratedWord (
     val partOfSpeech: String,
     val pinyin: String,
     val translation: String,
-    val simpleSentence: String,
+    val simplifiedSentence: String,
+    val traditionalSentence: String,
+    val sentencePinyin: String,
+    val sentenceTranslation: String,
     val usageFrequency: String,
     val tags: List<String>,
 )

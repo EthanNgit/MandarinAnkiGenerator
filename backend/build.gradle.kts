@@ -42,6 +42,9 @@ dependencies {
 
 	// JWT
 	implementation("com.auth0:java-jwt:4.2.1")
+
+	// SQLite
+	implementation("org.xerial:sqlite-jdbc:3.42.0.0")
 }
 
 kotlin {

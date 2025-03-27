@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.norbula.mingxue.models.GrammarPoint
+import com.norbula.mingxue.models.ai.grammar.GeneratedSentence
 import com.norbula.mingxue.models.ai.grammar.GeneratedWord
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -42,7 +44,7 @@ class OpenAIGrammarGenerator(
     override fun generateWords(amount: Int, topic: String): List<GeneratedWord> {
         val words = generateWordList(amount, topic)
         if (words.isEmpty()) return emptyList()
-        
+
         val batches = words.chunked(maxWordDetailChunkSize)
 
         val requests = batches.map { batch ->
@@ -60,7 +62,10 @@ class OpenAIGrammarGenerator(
                             "partOfSpeech": "<one of: Noun, Pronoun, Verb, Adjective, Adverb, Preposition, Conjunction, Determiner, Classifier, Particle, Interjection>",
                             "pinyin": "...",
                             "translation": "...",
-                            "simpleSentence": "...",
+                            "simplifiedSentence": "...", // simple sentence using word
+                            "traditionalSentence": "...", // same sentence but traditional
+                            "sentencePinyin": "...", // pinyin of the same sentence
+                            "sentenceTranslation": "..." // translation of the sentence
                             "usageFrequency": "<one of: Frequent, Periodic, Infrequent>",
                             "tags": ["tag1", "tag2", "tag3"]  // Add tags here for searchability
                         }
@@ -136,8 +141,84 @@ class OpenAIGrammarGenerator(
             .orEmpty()
     }
 
-    override fun generateSentences(amount: Int, topic: String) {
-        TODO("Not yet implemented")
+    override fun generateSentencesUsingWord(amount: Int, word: String): List<GeneratedSentence> {
+        val requestBody = mapOf(
+            "model" to "gpt-4o-mini",
+            "messages" to listOf(
+                mapOf("role" to "system", "content" to "You only output JSON. Dont include any explanations or introductions."),
+                mapOf("role" to "user", "content" to """
+                    Generate $amount unique sentences using mandarin. Each sentence must include or use the word "$word" in some way. Use this exact JSON array format:
+                    [
+                        {
+                            "simplifiedSentence": "...",
+                            "traditionalSentence": "...",
+                            "pinyin": "...",
+                            "translation": "..."
+                        }
+                    ]
+                """.trimIndent()),
+            "temperature" to 0.9
+            )
+        )
+
+        return try {
+            webClient.post()
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(OpenAIResponse::class.java)
+                .map { response ->
+                    val contentJson = response.choices.firstOrNull()?.message?.content ?: "[]"
+                    logger.debug("Raw GPT Response: {}", contentJson)  // Add this for debugging
+
+                    val jsonNode: JsonNode = jacksonObjectMapper().readTree(contentJson)
+
+                    jacksonObjectMapper().convertValue(jsonNode, object : TypeReference<List<GeneratedSentence>>() {})
+                }
+                .block() ?: emptyList()
+        } catch (e: Exception) {
+            println("Error calling OpenAI API: ${e.message}")
+            emptyList()
+        }
+    }
+
+    override fun generateSentencesGrammarConcept(amount: Int, concept: GrammarPoint): List<GeneratedSentence> {
+        val requestBody = mapOf(
+            "model" to "gpt-4o-mini",
+            "messages" to listOf(
+                mapOf("role" to "system", "content" to "You only output JSON. Dont include any explanations or introductions."),
+                mapOf("role" to "user", "content" to """
+                    Generate $amount unique but simple sentences using mandarin. Each sentence must use the grammar concept "${concept.context.word.simplifiedWord} as used in the sentence ${concept.context.usageSentence}". Use this exact JSON array format:
+                    [
+                        {
+                            "simplifiedSentence": "...",
+                            "traditionalSentence": "...",
+                            "pinyin": "...",
+                            "translation": "..."
+                        }
+                    ]
+                """.trimIndent()),
+                "temperature" to 0.9
+            )
+        )
+
+        return try {
+            webClient.post()
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(OpenAIResponse::class.java)
+                .map { response ->
+                    val contentJson = response.choices.firstOrNull()?.message?.content ?: "[]"
+                    logger.debug("Raw GPT Response: {}", contentJson)  // Add this for debugging
+
+                    val jsonNode: JsonNode = jacksonObjectMapper().readTree(contentJson)
+
+                    jacksonObjectMapper().convertValue(jsonNode, object : TypeReference<List<GeneratedSentence>>() {})
+                }
+                .block() ?: emptyList()
+        } catch (e: Exception) {
+            println("Error calling OpenAI API: ${e.message}")
+            emptyList()
+        }
     }
 
     override fun isSameWordBasedOnContext(word: String, str1: String, str2: String): Boolean {

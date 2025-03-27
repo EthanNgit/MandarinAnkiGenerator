@@ -1,0 +1,6 @@
+azure-cognitiveservices-speech
+google-cloud-texttospeech
+pydub
+pydantic
+fastapi
+uvicorn

@@ -1,0 +1,21 @@
+# Use an official Python image as a base
+FROM python:3.10-slim
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Install ffmpeg and system dependencies
+RUN apt update && apt install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
+# Copy the requirements file and install dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the entire project into the container
+COPY . .
+
+# Set environment variable for ffmpeg (optional)
+ENV FFMPEG_PATH="ffmpeg"
+
+# Command to run your script (replace with your actual script name)
+CMD ["python", "main.py"]

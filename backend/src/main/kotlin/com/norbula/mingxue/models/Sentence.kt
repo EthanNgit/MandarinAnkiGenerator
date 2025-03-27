@@ -12,8 +12,11 @@ data class Sentence(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Int = 0,
 
-    @Column(nullable = false)
-    val sentence: String,
+    @Column(name = "simplified_sentence", nullable = false)
+    val simplifiedSentence: String,
+
+    @Column(name = "traditional_sentence", nullable = false)
+    val traditionalSentence: String,
 
     @Column(nullable = false)
     val pinyin: String,

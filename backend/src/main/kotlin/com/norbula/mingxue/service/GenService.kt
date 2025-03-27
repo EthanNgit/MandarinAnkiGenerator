@@ -1,16 +1,12 @@
 package com.norbula.mingxue.service
 
-import com.norbula.mingxue.models.Word
-import com.norbula.mingxue.models.WordContext
-import com.norbula.mingxue.models.WordTranslation
+import com.norbula.mingxue.models.*
+import com.norbula.mingxue.models.ai.grammar.GeneratedSentence
 import com.norbula.mingxue.models.enums.ContextFrequency
 import com.norbula.mingxue.models.enums.PartOfSpeech
 import com.norbula.mingxue.models.ai.grammar.GeneratedWord
+import com.norbula.mingxue.repository.*
 import com.norbula.mingxue.service.ai.grammar.GrammarGenerator
-import com.norbula.mingxue.repository.SentenceRepository
-import com.norbula.mingxue.repository.WordContextRepository
-import com.norbula.mingxue.repository.WordRepository
-import com.norbula.mingxue.repository.WordTranslationRepository
 import com.norbula.mingxue.service.documents.WordTaggingService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -22,6 +18,8 @@ class GenService (
     @Autowired private val wordRepository: WordRepository,
     @Autowired private val wordContextRepository: WordContextRepository,
     @Autowired private val wordTranslationRepository: WordTranslationRepository,
+    @Autowired private val grammarPointRepository: GrammarPointRepository,
+    @Autowired private val grammarPointSentenceRepository: GrammarPointSentenceRepository,
     @Autowired private val sentenceRepository: SentenceRepository,
     @Autowired private val wordTaggingService: WordTaggingService,
     @Autowired private val generators: Map<String, GrammarGenerator>
@@ -35,6 +33,7 @@ class GenService (
         // for batch db requests
         val newWords = mutableListOf<Word>()
         val newContexts = mutableListOf<WordContext>()
+        val newSentences = mutableListOf<Sentence>()
         val newTranslations = mutableListOf<WordTranslation>()
         val resultContexts = mutableListOf<WordContext>()
 
@@ -48,7 +47,7 @@ class GenService (
                 generatedWords = generator.generateWords(amount, topic)
             }
             // generate words in form of `GeneratedWord`
-            logger.debug("Generated $amount words in $generationTimeElapsed ms with results: ${generatedWords.map { it.simpleSentence }}")
+            logger.debug("Generated $amount words in $generationTimeElapsed ms with results: ${generatedWords.map { it.simplifiedSentence }}")
 
             // create map of words that already existed out of the batch (map to its word)
             val simplifiedWords = generatedWords.map { it.simplifiedWord }
@@ -74,7 +73,7 @@ class GenService (
                 generatedWordToContexts[generatedWord] = existingContexts
 
                 existingContexts.forEach { context ->
-                    contextComparisons.add(Triple(word.simplifiedWord, context.usageSentence, generatedWord.simpleSentence))
+                    contextComparisons.add(Triple(word.simplifiedWord, context.usageSentence.simplifiedSentence, generatedWord.simplifiedSentence))
                 }
             }
 
@@ -128,15 +127,29 @@ class GenService (
                     // only create a new context if no match was found
                     // but always update generation count at least
                     if (matchedContext == null) {
+                        val newSentence = Sentence(
+                            simplifiedSentence = generatedWord.simplifiedSentence,
+                            traditionalSentence = generatedWord.traditionalSentence,
+                            pinyin = generatedWord.sentencePinyin,
+                            translation = generatedWord.sentenceTranslation
+                        ).also { newSentences.add(it) }
+
                         matchedContext = WordContext(
                             word = word,
                             pinyin = generatedWord.pinyin,
                             partOfSpeech = PartOfSpeech.valueOf(generatedWord.partOfSpeech.lowercase()),
-                            usageSentence = generatedWord.simpleSentence,
+                            usageSentence = newSentence,
                             generationCount = 1,
                             frequency = ContextFrequency.valueOf(generatedWord.usageFrequency.lowercase())
                         ).also { newContexts.add(it); resultContexts.add(it) }
                         logger.debug("Created new context for word: ${word.simplifiedWord}, context: ${matchedContext.usageSentence}")
+                    }
+
+                    if (newSentences.isNotEmpty()) {
+                        sentenceRepository.saveAll(newSentences).also {
+                            logger.debug("Sentences saved to repository: ${newSentences.map { it.simplifiedSentence }}")
+                            newSentences.clear() // clear the list after saving to prevent re-saving
+                        }
                     }
 
                     // save contexts in batch after all words have been processed
@@ -180,5 +193,50 @@ class GenService (
         logger.debug("Took entire function minus bottle cap ${wholeTimeElapsed - generationTimeElapsed} ms to complete")
 
         return resultContexts
+    }
+
+    fun CreateSentencesForWord(word: String): List<Sentence> {
+        val generator = generators["grammar_openAi"] ?: throw Error()
+
+        val newSentences = mutableListOf<GeneratedSentence>()
+
+        TODO()
+    }
+
+    fun CreateSentencesForGrammarConcept(conceptId: Int): List<GrammarPointSentence> {
+        val concept = grammarPointRepository.findById(conceptId).orElseThrow { Error() } // TODO: add error for invalid concept
+
+        val generator = generators["grammar_openAi"] ?: throw Error()
+
+        val generatedSentences = generator.generateSentencesGrammarConcept(5, concept)
+
+        val newSentences = mutableListOf<Sentence>()
+        val newGrammarPointSentences = mutableListOf<GrammarPointSentence>()
+
+        generatedSentences.forEach { generatedSentence ->
+            val sentence = Sentence(
+                simplifiedSentence = generatedSentence.simplifiedSentence,
+                traditionalSentence = generatedSentence.traditionalSentence,
+                pinyin = generatedSentence.pinyin,
+                translation = generatedSentence.translation,
+            )
+
+            newSentences.add(sentence)
+        }
+
+        val sentences = sentenceRepository.saveAll(newSentences)
+
+        sentences.forEach { sentence ->
+            val grammarPointSentence = GrammarPointSentence(
+                grammarPoint = concept,
+                sentence = sentence
+            )
+
+            newGrammarPointSentences.add(grammarPointSentence)
+        }
+
+        val grammarPointSentences = grammarPointSentenceRepository.saveAll(newGrammarPointSentences)
+
+        return grammarPointSentences.toList()
     }
 }

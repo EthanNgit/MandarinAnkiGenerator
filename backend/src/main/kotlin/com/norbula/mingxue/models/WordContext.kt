@@ -25,8 +25,9 @@ data class WordContext(
     @Enumerated(EnumType.STRING)
     val partOfSpeech: PartOfSpeech,
 
-    @Column(nullable = false)
-    val usageSentence: String,
+    @ManyToOne
+    @JoinColumn(name = "sentence_id", nullable = false)
+    val usageSentence: Sentence,
 
     @Column(nullable = false)
     val generationCount: Int,
