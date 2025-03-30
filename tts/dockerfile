@@ -1,21 +1,26 @@
-# Use an official Python image as a base
-FROM python:3.10-slim
+FROM golang:1.23-alpine AS build
 
-# Set the working directory inside the container
+RUN apk add --no-cache ffmpeg
+
+ENV FFMPEG_PATH="/usr/bin/ffmpeg"
+
 WORKDIR /app
 
-# Install ffmpeg and system dependencies
-RUN apt update && apt install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Copy the requirements file and install dependencies
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY . ./
 
-# Copy the entire project into the container
-COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o tts ./src
 
-# Set environment variable for ffmpeg (optional)
-ENV FFMPEG_PATH="ffmpeg"
+FROM alpine:latest
 
-# Command to run your script (replace with your actual script name)
-CMD ["python", "main.py"]
+RUN apk --no-cache add ca-certificates ffmpeg
+
+ENV FFMPEG_PATH="/usr/bin/ffmpeg"
+ENV DOCKER_ENV="true"
+
+WORKDIR /root/
+COPY --from=build /app/tts . 
+
+CMD ["./tts"]

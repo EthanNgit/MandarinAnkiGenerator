@@ -7,6 +7,7 @@ import com.norbula.mingxue.models.enums.PartOfSpeech
 import com.norbula.mingxue.models.ai.grammar.GeneratedWord
 import com.norbula.mingxue.repository.*
 import com.norbula.mingxue.service.ai.grammar.GrammarGenerator
+import com.norbula.mingxue.service.ai.voice.NorbulaVoiceGenerator
 import com.norbula.mingxue.service.documents.WordTaggingService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -22,6 +23,7 @@ class GenService (
     @Autowired private val grammarPointSentenceRepository: GrammarPointSentenceRepository,
     @Autowired private val sentenceRepository: SentenceRepository,
     @Autowired private val wordTaggingService: WordTaggingService,
+    @Autowired private val ttsService: NorbulaVoiceGenerator,
     @Autowired private val generators: Map<String, GrammarGenerator>
 ) {
     private val logger = LoggerFactory.getLogger(GenService::class.java)
