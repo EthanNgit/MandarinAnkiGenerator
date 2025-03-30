@@ -21,7 +21,7 @@ data class WordContext(
     @Column(nullable = false)
     val pinyin: String,
 
-    @Column(nullable = false)
+    @Column(name = "part_of_speech", nullable = false)
     @Enumerated(EnumType.STRING)
     val partOfSpeech: PartOfSpeech,
 
@@ -29,12 +29,15 @@ data class WordContext(
     @JoinColumn(name = "sentence_id", nullable = false)
     val usageSentence: Sentence,
 
-    @Column(nullable = false)
+    @Column(name = "generation_count", nullable = false)
     val generationCount: Int,
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     val frequency: ContextFrequency = ContextFrequency.infrequent,
+
+    @Column(name = "tts_blob_url")
+    val ttsBlobUrl: String? = null,
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

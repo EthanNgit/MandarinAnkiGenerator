@@ -60,11 +60,11 @@ class OpenAIGrammarGenerator(
                             "simplifiedWord": "...",
                             "traditionalWord": "...",
                             "partOfSpeech": "<one of: Noun, Pronoun, Verb, Adjective, Adverb, Preposition, Conjunction, Determiner, Classifier, Particle, Interjection>",
-                            "pinyin": "...",
+                            "pinyin": "...", // use numbered pinyin such as ping2guo3
                             "translation": "...",
                             "simplifiedSentence": "...", // simple sentence using word
                             "traditionalSentence": "...", // same sentence but traditional
-                            "sentencePinyin": "...", // pinyin of the same sentence
+                            "sentencePinyin": "...", // pinyin of the same sentence, use numbered pinyin such as ping2guo3
                             "sentenceTranslation": "..." // translation of the sentence
                             "usageFrequency": "<one of: Frequent, Periodic, Infrequent>",
                             "tags": ["tag1", "tag2", "tag3"]  // Add tags here for searchability
@@ -152,7 +152,7 @@ class OpenAIGrammarGenerator(
                         {
                             "simplifiedSentence": "...",
                             "traditionalSentence": "...",
-                            "pinyin": "...",
+                            "pinyin": "...", // use numbered pinyin such as ping2guo3
                             "translation": "..."
                         }
                     ]
@@ -192,7 +192,7 @@ class OpenAIGrammarGenerator(
                         {
                             "simplifiedSentence": "...",
                             "traditionalSentence": "...",
-                            "pinyin": "...",
+                            "pinyin": "...", // use numbered pinyin such as ping2guo3
                             "translation": "..."
                         }
                     ]
