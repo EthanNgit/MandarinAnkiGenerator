@@ -3,6 +3,7 @@ package com.norbula.mingxue.controller
 import com.norbula.mingxue.models.UserDeck
 import com.norbula.mingxue.models.WordContext
 import com.norbula.mingxue.models.WordDTO
+import com.norbula.mingxue.models.enums.PinyinType
 import com.norbula.mingxue.service.AnkiService
 import com.norbula.mingxue.service.DeckService
 import com.norbula.mingxue.service.GenService
@@ -77,6 +78,7 @@ class testController(
 
     data class ExportDeckRequest(
         val deckName: String = "Deck 1",
+        val pinyinType: PinyinType = PinyinType.marked,
     )
 
     @PostMapping("/export")
@@ -89,7 +91,7 @@ class testController(
 
         // Create the SQLite collection file for Anki
         val sqliteFile = File(tempDir, "collection.anki2")
-        ankiService.createAnkiSQLiteDatabase(token, sqliteFile, deck.deckName)
+        ankiService.createAnkiSQLiteDatabase(token, sqliteFile, deck.deckName, deck.pinyinType)
 
         // Package the SQLite file into an .apkg (zip archive)
         val apkgFile = ankiService.createApkgFile(sqliteFile, deck.deckName)

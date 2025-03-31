@@ -2,10 +2,12 @@ package com.norbula.mingxue.service
 
 import com.norbula.mingxue.exceptions.UserDoesNotExist
 import com.norbula.mingxue.models.UserDeck
+import com.norbula.mingxue.models.enums.PinyinType
 import com.norbula.mingxue.repository.UserDeckRepository
 import com.norbula.mingxue.repository.UserDeckWordRepository
 import com.norbula.mingxue.repository.UserRepository
 import com.norbula.mingxue.repository.WordTranslationRepository
+import com.norbula.mingxue.service.pinyin.NorbulaPinyinConverter
 import jakarta.json.JsonObject
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -25,9 +27,10 @@ class AnkiService(
     @Autowired private val deckRepository: UserDeckRepository,
     @Autowired private val userDeckWordRepository: UserDeckWordRepository,
     @Autowired private val wordTranslationRepository: WordTranslationRepository,
+    @Autowired private val pinyinConverter: NorbulaPinyinConverter
 )  {
     // TODO: add export options: includeSimplified, includeTraditional, pinyin, colors maybe?, custom css and html?, ai voice?
-    fun createAnkiSQLiteDatabase(userToken: String, sqliteFile: File, deckName: String) {
+    fun createAnkiSQLiteDatabase(userToken: String, sqliteFile: File, deckName: String, pinyinType: PinyinType) {
         val user = userRepository.findByAuthToken(userToken).orElseThrow { UserDoesNotExist() }
         val deck = deckRepository.findByUserAndName(user, deckName).orElseThrow { Error("Deck does not exist") }
 
@@ -256,9 +259,6 @@ class AnkiService(
             executeUpdate()
         }
 
-        println("THIS IS CALLED")
-
-
         // Prepare statements
         val insertNote = connection.prepareStatement(
             "INSERT INTO notes (id, guid, mid, mod, usn, tags, flds, sfld, csum, flags, data) " +
@@ -272,6 +272,26 @@ class AnkiService(
 
         // Process words
         val deckWords = userDeckWordRepository.findByDeck(deck)
+        // Extract the numbered pinyin from words and sentences.
+        val wordPinyinList = deckWords.map { it.wordContext.pinyin }
+        val sentencePinyinList = deckWords.map { it.wordContext.usageSentence.pinyin }
+
+        // Batch-convert the pinyin based on the pinyinType.
+        val convertedWordPinyin: List<String> = when(pinyinType) {
+            PinyinType.marked  -> pinyinConverter.toMarked(wordPinyinList)
+            PinyinType.zhuyin  -> pinyinConverter.toZhuyin(wordPinyinList)
+            PinyinType.none    -> List(wordPinyinList.size) { "" }  // leave blank when pinyinType is none
+            else               -> wordPinyinList  // default numbered, no conversion needed
+        }
+
+        val convertedSentencePinyin: List<String> = when(pinyinType) {
+            PinyinType.marked  -> pinyinConverter.toMarked(sentencePinyinList)
+            PinyinType.zhuyin  -> pinyinConverter.toZhuyin(sentencePinyinList)
+            PinyinType.none    -> List(sentencePinyinList.size) { "" }
+            else               -> sentencePinyinList
+        }
+
+        // Now process each deck word and insert the note.
         deckWords.forEachIndexed { index, word ->
             val wordTranslation = wordTranslationRepository.findByContext(word.wordContext)
                 .orElseThrow { Error("Invalid word") }
@@ -280,7 +300,20 @@ class AnkiService(
             val noteId = System.currentTimeMillis() + index
             val cardId = noteId + 1
 
-            // Insert Note
+            // Build the fields to be stored. Notice that for the pinyin fields we use the converted results.
+            val fields = listOf(
+                word.wordContext.word.simplifiedWord,
+                word.wordContext.word.traditionalWord,
+                convertedWordPinyin[index],
+                wordTranslation.translation,
+                word.wordContext.partOfSpeech,
+                word.wordContext.usageSentence.simplifiedSentence,
+                word.wordContext.usageSentence.traditionalSentence,
+                convertedSentencePinyin[index],
+                word.wordContext.usageSentence.translation ?: ""
+            )
+
+            // Insert Note (using your prepared statement 'insertNote').
             with(insertNote) {
                 setLong(1, noteId)
                 setString(2, UUID.randomUUID().toString())
@@ -288,21 +321,10 @@ class AnkiService(
                 setLong(4, now)
                 setInt(5, 0)
                 setString(6, word.wordContext.frequency.toString())
-
-                val fields = listOf(
-                    word.wordContext.word.simplifiedWord,
-                    word.wordContext.word.traditionalWord,
-                    word.wordContext.pinyin,
-                    wordTranslation.translation,
-                    word.wordContext.partOfSpeech,
-                    word.wordContext.usageSentence.simplifiedSentence,
-                    word.wordContext.usageSentence.traditionalSentence,
-                    word.wordContext.usageSentence.pinyin,
-                    word.wordContext.usageSentence.translation ?: ""
-                )
                 setString(7, fields.joinToString("\u001F"))
                 setString(8, fields[0].toString())
 
+                // Calculate and set CRC using the simplified word.
                 val crc = CRC32().apply { update(fields[0].toString().toByteArray()) }
                 setLong(9, crc.value)
                 setInt(10, 0)
@@ -335,13 +357,6 @@ class AnkiService(
         }
 
         connection.close()
-    }
-
-    private fun String.quoteAsJson(): String {
-        return "\"" + this.replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r") + "\""
     }
 
     // Create an APKG file (zip archive) that contains the collection.anki2 file.

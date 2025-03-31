@@ -1,3 +1,4 @@
 .env
 /backend/serviceAccountKey.json
 /backend/google_service.json
+.vscode

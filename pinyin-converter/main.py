@@ -1,97 +1,104 @@
-from typing import List, Dict
+from typing import List
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 
 import re
 from pyzhuyin import pinyin_to_zhuyin as p_t_z
 
 
-tone_map = {
-    'a': ['ā', 'á', 'ǎ', 'à'],
-    'o': ['ō', 'ó', 'ǒ', 'ò'],
-    'e': ['ē', 'é', 'ě', 'è'],
-    'i': ['ī', 'í', 'ǐ', 'ì'],
-    'u': ['ū', 'ú', 'ǔ', 'ù'],
-    'ü': ['ǖ', 'ǘ', 'ǚ', 'ǜ']
+accent_map = {
+    'a': {'1': 'ā', '2': 'á', '3': 'ǎ', '4': 'à', '5': 'a'},
+    'e': {'1': 'ē', '2': 'é', '3': 'ě', '4': 'è', '5': 'e'},
+    'i': {'1': 'ī', '2': 'í', '3': 'ǐ', '4': 'ì', '5': 'i'},
+    'o': {'1': 'ō', '2': 'ó', '3': 'ǒ', '4': 'ò', '5': 'o'},
+    'u': {'1': 'ū', '2': 'ú', '3': 'ǔ', '4': 'ù', '5': 'u'},
+    'v': {'1': 'ǖ', '2': 'ǘ', '3': 'ǚ', '4': 'ǜ', '5': 'ü'},
+    'ü': {'1': 'ǖ', '2': 'ǘ', '3': 'ǚ', '4': 'ǜ', '5': 'ü'}
 }
 
 
-def standardize_pinyin(pinyin):
+def standardize_pinyin(text: str) -> str:
+    text = re.sub(r'([a-zA-Züv]+)\s+(\d)', r'\1\2', text)
+
+    tokens = text.split()
+
+    if not tokens:
+        return ""
+
+    merged_tokens = []
+    current = tokens[0]
+
+    for token in tokens[1:]:
+        if not current[-1].isdigit() and token and token[0].isdigit():
+            current += token
+        else:
+            merged_tokens.append(current)
+            current = token
+    merged_tokens.append(current)
+
+    return " ".join(merged_tokens)
+
+
+def convert_syllable(syllable: str, tone: str) -> str:
+    s_lower = syllable.lower()
+    index = -1
+    if 'a' in s_lower:
+        index = s_lower.index('a')
+    elif 'e' in s_lower:
+        index = s_lower.index('e')
+    elif "ou" in s_lower:
+        index = s_lower.index('o')
+    else:
+        for i in range(len(s_lower)-1, -1, -1):
+            if s_lower[i] in "aeiouüv":
+                index = i
+                break
+    if index == -1:
+        return syllable
+    vowel = s_lower[index]
+    accented = accent_map.get(vowel, {}).get(tone, vowel)
+    result = syllable[:index] + accented + syllable[index+1:]
+    return result
+
+
+def convert_token(token: str) -> str:
+    syllables = re.findall(r'([a-zA-Züv]+)(\d)', token)
+    if not syllables:
+        return token
+    converted = ""
+    for syl, tone in syllables:
+        converted += convert_syllable(syl, tone)
+    return converted
+
+
+def pinyin_to_marked(pinyin: str) -> str:
+    std = standardize_pinyin(pinyin)
+    delimiter = " " if " " in std else ""
+    tokens = std.split()
+    converted_tokens = [convert_token(token) for token in tokens]
+    if delimiter:
+        converted_tokens = [t.capitalize() for t in converted_tokens]
+        return delimiter.join(converted_tokens)
+    else:
+        result = "".join(converted_tokens)
+        return result.capitalize()
+
+
+def standardize_pinyin_for_zhuyin(pinyin):
     try:
-        pinyin_str = str(pinyin)
+        pinyin_str = str(pinyin.replace('ü', "v"))
         processed = re.sub(r'([a-zA-Z]+)\s+([1-4])', r'\1\2', pinyin_str)
+        processed = re.sub(r'([1-4])(?=[a-zA-Z])', r'\1 ', processed)
         syllables = re.findall(r'[a-zA-Z]+[1-4]|[a-zA-Z]+|\d+', processed)
         return ' '.join(syllables)
     except TypeError:
         return ""
-    
-
-def add_tone_mark(char, tone):
-    tone_index = tone - 1
-    return tone_map.get(char, [char] * 4)[tone_index]
-
-
-def process_syllable(syllable):
-    if not syllable:
-        return ''
-    # Check if the syllable ends with a tone number
-    if not syllable[-1].isdigit():
-        return syllable.lower()
-    tone = int(syllable[-1])
-    if tone < 1 or tone > 4:
-        return syllable[:-1].lower()
-    letters = syllable[:-1].lower().replace('v', 'ü')
-    # Check for a, o, e
-    for vowel in ['a', 'o', 'e']:
-        if vowel in letters:
-            index = letters.find(vowel)
-            accented_vowel = add_tone_mark(vowel, tone)
-            new_letters = letters[:index] + accented_vowel + letters[index+1:]
-            return new_letters
-    # Check for iu or ui
-    if 'iu' in letters:
-        iu_pos = letters.find('iu')
-        u_pos = iu_pos + 1
-        accented_u = add_tone_mark('u', tone)
-        new_letters = letters[:u_pos] + accented_u + letters[u_pos+1:]
-        return new_letters
-    elif 'ui' in letters:
-        ui_pos = letters.find('ui')
-        i_pos = ui_pos + 1
-        accented_i = add_tone_mark('i', tone)
-        new_letters = letters[:i_pos] + accented_i + letters[i_pos+1:]
-        return new_letters
-    # Check for i, u, ü
-    for vowel in ['i', 'u', 'ü']:
-        if vowel in letters:
-            index = letters.find(vowel)
-            accented_vowel = add_tone_mark(vowel, tone)
-            new_letters = letters[:index] + accented_vowel + letters[index+1:]
-            return new_letters
-    # If no vowels found, return letters as is
-    return letters
-
-
-def pinyin_to_marked(pinyin):
-    standardized = standardize_pinyin(pinyin)
-    if isinstance(standardized, list):
-        syllables = standardized
-    else:
-        syllables = standardized.split()
-    processed = []
-    for syl in syllables:
-        processed_syl = process_syllable(syl)
-        processed.append(processed_syl)
-    combined = ''.join(processed)
-    if combined:
-        combined = combined[0].upper() + combined[1:]
-    return combined
 
 
 def pinyin_to_zhuyin(pinyin):
     try:
-        a = standardize_pinyin(pinyin)
+        a = standardize_pinyin_for_zhuyin(pinyin)
         a = a.split(" ")
         return "".join([p_t_z(x) for x in a])
     except ValueError:
@@ -104,16 +111,17 @@ class ConvertRequest(BaseModel):
 app = FastAPI(title="Pinyin Converting API")
 
 @app.post("/api/v1/convert/mark")
-def process_words(request: ConvertRequest):
+def process_pinyin_to_mark(request: ConvertRequest):
     res = [pinyin_to_marked(x) for x in request.pinyin]
+    print(res)
 
     return {"result": res}
 
 
 @app.post("/api/v1/convert/zhuyin")
-def process_words(request: ConvertRequest):
+def process_pinyin_to_zhuyin(request: ConvertRequest):
     res = [pinyin_to_zhuyin(x) for x in request.pinyin]
-
+    print(res)
     return {"result": res}
 
 
