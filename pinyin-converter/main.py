@@ -88,9 +88,11 @@ def pinyin_to_marked(pinyin: str) -> str:
 def standardize_pinyin_for_zhuyin(pinyin):
     try:
         pinyin_str = str(pinyin.replace('ü', "v"))
-        processed = re.sub(r'([a-zA-Z]+)\s+([1-4])', r'\1\2', pinyin_str)
+        processed = re.sub(r'([a-zA-Z]+)5', r'\1', pinyin_str)
+        processed = re.sub(r'([a-zA-Z]+)\s+([1-4])', r'\1\2', processed)
         processed = re.sub(r'([1-4])(?=[a-zA-Z])', r'\1 ', processed)
         syllables = re.findall(r'[a-zA-Z]+[1-4]|[a-zA-Z]+|\d+', processed)
+
         return ' '.join(syllables)
     except TypeError:
         return ""

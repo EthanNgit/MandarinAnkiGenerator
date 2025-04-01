@@ -104,7 +104,7 @@ func (a *AzureTTSProvider) Process(words []Word, gender string) ([]string, error
 func (a *AzureTTSProvider) synthesizeSpeech(words []Word, voice string) ([]byte, error) {
 	ssml := fmt.Sprintf(`<speak xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xmlns:emo='http://www.w3.org/2009/10/emotionml' version='1.0' xml:lang='%s'>
 		<voice name='%s'>
-			<prosody rate='-20.00%%' pitch='default' contour="">`, a.languageCode, voice)
+			<lang xml:lang="%s"><prosody rate='-20.00%%' pitch='default' contour="">`, a.languageCode, voice, a.languageCode)
 
 	for _, word := range words {
 		if word.Pronunciation != "" {
@@ -115,7 +115,7 @@ func (a *AzureTTSProvider) synthesizeSpeech(words []Word, voice string) ([]byte,
 		}
 	}
 
-	ssml += `</prosody></voice></speak>`
+	ssml += `</prosody></lang></voice></speak>`
 
 	fmt.Println("Generated SSML:") // Add this line
 	fmt.Println(ssml)              // Add this line

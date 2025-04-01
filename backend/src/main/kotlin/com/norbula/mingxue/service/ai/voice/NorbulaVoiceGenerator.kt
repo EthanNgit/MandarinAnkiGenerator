@@ -15,15 +15,14 @@ class NorbulaVoiceGenerator: VoiceGenerator {
         .defaultHeader("Content-Type", "application/json")
         .build()
 
-    override fun generateTTSFiles(words: List<SpeechWord>): List<String> {
+    override fun generateTTSFiles(words: List<SpeechWord>) {
         val requestBody = TTSRequest(words = words)
 
-        return webClient.post()
+        webClient.post()
             .uri("/process")
             .bodyValue(requestBody)
             .retrieve()
-            .bodyToMono(object : ParameterizedTypeReference<List<String>>() {})
-            .block()
-            .orEmpty()
+            .toBodilessEntity()  // Expect no response body
+            .block()  // Wait for completion
     }
 }

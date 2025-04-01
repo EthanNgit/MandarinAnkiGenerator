@@ -50,7 +50,7 @@ func NewEngine(provider string, config *tts.TTSConfig) (*Engine, error) {
 			male = "zh-CN-YunxiaoMultilingualNeural"
 		}
 		if female == "" {
-			female = "zh-CN-XiaochenMultilingualNeural"
+			female = "zh-CN-XiaoxiaoMultilingualNeural"
 		}
 
 		ttsProvider, err = tts.NewAzureTTSProvider("zh-CN", male, female, configuration)

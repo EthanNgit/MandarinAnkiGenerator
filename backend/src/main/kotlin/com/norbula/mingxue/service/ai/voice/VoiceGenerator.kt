@@ -4,11 +4,11 @@ import com.norbula.mingxue.models.ai.grammar.GeneratedWord
 import com.norbula.mingxue.models.ai.speech.SpeechWord
 
 data class TTSRequest(
-    val engine: String = "google",
-    val gender: String = "any",
+    val engine: String = "azure",
+    val gender: String = "female",
     val words: List<SpeechWord>
 )
 
 interface VoiceGenerator {
-    fun generateTTSFiles(words: List<SpeechWord>): List<String>
+    fun generateTTSFiles(words: List<SpeechWord>)
 }

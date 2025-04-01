@@ -36,9 +36,6 @@ data class WordContext(
     @Enumerated(EnumType.STRING)
     val frequency: ContextFrequency = ContextFrequency.infrequent,
 
-    @Column(name = "tts_blob_url")
-    val ttsBlobUrl: String? = null,
-
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: LocalDateTime? = null,

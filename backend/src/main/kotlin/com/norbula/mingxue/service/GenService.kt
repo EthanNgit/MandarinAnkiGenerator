@@ -5,6 +5,7 @@ import com.norbula.mingxue.models.ai.grammar.GeneratedSentence
 import com.norbula.mingxue.models.enums.ContextFrequency
 import com.norbula.mingxue.models.enums.PartOfSpeech
 import com.norbula.mingxue.models.ai.grammar.GeneratedWord
+import com.norbula.mingxue.models.ai.speech.SpeechWord
 import com.norbula.mingxue.repository.*
 import com.norbula.mingxue.service.ai.grammar.GrammarGenerator
 import com.norbula.mingxue.service.ai.voice.NorbulaVoiceGenerator
@@ -94,6 +95,9 @@ class GenService (
             // 9. Process and Save Translations (Now safe to check existsByContext)
             processAndSaveTranslations(processedEntitiesResult.contextsForTranslationCheck) // <-- New step
             logger.debug("Processed and saved translations. $loggerContext")
+
+            // 10. Generate TTS files for the contexts
+            generateTtsForContexts(resultContexts)
 
             // TODO: Add tagging logic here if needed
 
@@ -199,7 +203,6 @@ class GenService (
         contextComparisons: List<Triple<String, String, String>>
     ): List<Boolean> {
         return if (contextComparisons.isNotEmpty()) {
-            // Add error handling for API call
             generator.areWordsSameBasedOnContextBatch(contextComparisons)
         } else {
             emptyList()
@@ -209,20 +212,19 @@ class GenService (
     private data class ProcessedEntitiesResult(
         val contextsToSaveOrUpdate: List<WordContext>,
         val sentencesToSave: List<Sentence>,
-        val contextsForTranslationCheck: List<Pair<WordContext, GeneratedWord>>, // Store context and its original generation data
+        val contextsForTranslationCheck: List<Pair<WordContext, GeneratedWord>>,
         val resultContexts: List<WordContext>
     )
 
     private fun processEntities(
         generatedWords: List<GeneratedWord>,
-        allWordsMap: Map<String, Word>, // Map containing both existing and newly saved words
+        allWordsMap: Map<String, Word>,
         generatedWordToExistingContextsMap: Map<GeneratedWord, List<WordContext>>,
         similarityResults: List<Boolean>
     ): ProcessedEntitiesResult { // <-- Updated return type
         val contextsToSaveOrUpdate = mutableListOf<WordContext>()
         val sentencesToSave = mutableListOf<Sentence>()
-        // REMOVED: val translationsToSave = mutableListOf<WordTranslation>()
-        val contextsForTranslationCheck = mutableListOf<Pair<WordContext, GeneratedWord>>() // <-- New list
+        val contextsForTranslationCheck = mutableListOf<Pair<WordContext, GeneratedWord>>()
         val finalResultContexts = mutableListOf<WordContext>()
 
         var similarityCheckIndex = 0
@@ -232,17 +234,15 @@ class GenService (
                 ?: throw IllegalStateException("Word '${generatedWord.simplifiedWord}' not found in map after save.")
 
             val existingContexts = generatedWordToExistingContextsMap[generatedWord] ?: emptyList()
-            var matchedContext: WordContext? = null // Will hold the final context object for this generated word
+            var matchedContext: WordContext? = null
 
-            // Check against existing contexts for this word
-            // (Logic for finding/creating matchedContext remains the same as before)
             for (context in existingContexts) {
                 if (similarityCheckIndex >= similarityResults.size) {
                     logger.warn("Similarity results index out of bounds. Expected result for: ${context.usageSentence.simplifiedSentence}")
-                    break // Avoid IndexOutOfBoundsException
+                    break
                 }
                 val isSimilar = similarityResults[similarityCheckIndex]
-                similarityCheckIndex++ // Consume the result
+                similarityCheckIndex++
 
                 if (isSimilar) {
                     matchedContext = context.copy(generationCount = context.generationCount + 1)
@@ -253,7 +253,6 @@ class GenService (
                 }
             }
 
-            // If no existing context matched, create a new one
             if (matchedContext == null) {
                 val newSentence = Sentence(
                     simplifiedSentence = generatedWord.simplifiedSentence,
@@ -276,38 +275,31 @@ class GenService (
                 logger.trace("Creating new context for word '${word.simplifiedWord}'. Sentence: ${newSentence.simplifiedSentence}")
             }
 
-            // --- Translation logic removed from here ---
-            // Instead, store the context and generated word for later processing
-            contextsForTranslationCheck.add(matchedContext to generatedWord) // <-- Add to new list
+            contextsForTranslationCheck.add(matchedContext to generatedWord)
 
-        } // End loop through generatedWords
+        }
 
-        return ProcessedEntitiesResult( // <-- Use updated data class
+        return ProcessedEntitiesResult(
             contextsToSaveOrUpdate,
             sentencesToSave,
-            contextsForTranslationCheck, // <-- Pass the new list
+            contextsForTranslationCheck,
             finalResultContexts
         )
     }
 
-    private fun saveProcessedEntities(entities: ProcessedEntitiesResult) { // <-- Updated parameter type
+    private fun saveProcessedEntities(entities: ProcessedEntitiesResult) {
         var savedSentences: List<Sentence> = emptyList()
         if (entities.sentencesToSave.isNotEmpty()) {
-            savedSentences = sentenceRepository.saveAll(entities.sentencesToSave).toList() // Ensure List
+            savedSentences = sentenceRepository.saveAll(entities.sentencesToSave).toList()
             logger.debug("Saved ${savedSentences.size} sentences.")
         }
 
         var savedContexts: List<WordContext> = emptyList()
         if (entities.contextsToSaveOrUpdate.isNotEmpty()) {
-            savedContexts = wordContextRepository.saveAll(entities.contextsToSaveOrUpdate).toList() // Ensure List
+            // Persist the contexts so they have non-null IDs.
+            savedContexts = wordContextRepository.saveAll(entities.contextsToSaveOrUpdate).toList()
             logger.debug("Saved/Updated ${savedContexts.size} contexts.")
-            // Optional: You might need to update the context objects in entities.contextsForTranslationCheck
-            // with these saved instances if the object references don't automatically update.
-            // This depends on how JPA manages object identity after saveAll. A safer approach
-            // might be to map savedContexts by some key and retrieve the persistent instance later.
-            // However, let's try without it first, as JPA often updates IDs in place.
         }
-        // --- Translation saving removed ---
     }
 
     private fun processAndSaveTranslations(contextsAndGenerations: List<Pair<WordContext, GeneratedWord>>) {
@@ -319,13 +311,10 @@ class GenService (
         val translationsToSave = mutableListOf<WordTranslation>()
 
         contextsAndGenerations.forEach { (context, generatedWord) ->
-            // Now 'context' should be persistent (or at least have its ID set by JPA after saveAll)
-            // If you still get errors, it might mean context object references weren't updated post-save,
-            // requiring fetching them again or using a map based on IDs from the saved results.
             try {
                 if (!wordTranslationRepository.existsByContext(context)) {
                     WordTranslation(
-                        context = context, // Use the (now hopefully persistent) context
+                        context = context,
                         translation = generatedWord.translation
                     ).also {
                         translationsToSave.add(it)
@@ -333,194 +322,49 @@ class GenService (
                     }
                 }
             } catch (e: Exception) {
-                // Log potential errors during existsByContext if context is still transient or ID is null
                 logger.error("Error checking translation existence for context (ID might be null?): ${context.id}, Sentence: ${context.usageSentence.simplifiedSentence}. Error: ${e.message}")
-                // Decide if you want to skip or handle differently
             }
         }
 
         if (translationsToSave.isNotEmpty()) {
-            val savedTranslations = wordTranslationRepository.saveAll(translationsToSave).toList() // Ensure List
+            val savedTranslations = wordTranslationRepository.saveAll(translationsToSave).toList()
             logger.debug("Saved ${savedTranslations.size} new translations.")
         } else {
             logger.debug("No new translations needed.")
         }
     }
 
-    // Helper to measure time and return result + time
+    private fun generateTtsForContexts(contexts: List<WordContext>) {
+        val validContexts = contexts.filter { it.id != null }
+        if (validContexts.size < contexts.size) {
+            logger.warn("${contexts.size - validContexts.size} contexts had no ID and were skipped for TTS generation.")
+        }
+        val speechWords = validContexts.map { context ->
+            SpeechWord(
+                contextId = context.id!!,
+                text = context.word.simplifiedWord,
+                pronunciation = context.pinyin
+            )
+        }
+        if (speechWords.isNotEmpty()) {
+            try {
+                ttsService.generateTTSFiles(speechWords)
+                logger.debug("TTS files generated for ${speechWords.size} contexts.")
+            } catch (e: Exception) {
+                logger.error("Failed to generate TTS files: ${e.message}", e)
+            }
+        } else {
+            logger.debug("No contexts with valid IDs to generate TTS for.")
+        }
+    }
+
     private inline fun <T> measure(block: () -> T): Pair<T, Long> {
         var result: T? = null
         val time = measureTimeMillis {
             result = block()
         }
-        // Cast needed because Kotlin can't guarantee initialization otherwise inside lambda
         return (result as T) to time
     }
-
-//    fun CreateWords(amount: Int, topic: String): List<WordContext> {
-//        // pick generation method
-//        val generator = generators["grammar_openAi"] ?: throw Error()
-//
-//        // for batch db requests
-//        val newWords = mutableListOf<Word>()
-//        val newContexts = mutableListOf<WordContext>()
-//        val newSentences = mutableListOf<Sentence>()
-//        val newTranslations = mutableListOf<WordTranslation>()
-//        val resultContexts = mutableListOf<WordContext>()
-//
-//        // measure entire function time for performance
-//        var generationTimeElapsed = 0L
-//        val wholeTimeElapsed = measureTimeMillis {
-//            var generatedWords: List<GeneratedWord>
-//
-//            // measure generation time bottle cap
-//            generationTimeElapsed = measureTimeMillis {
-//                generatedWords = generator.generateWords(amount, topic)
-//            }
-//            // generate words in form of `GeneratedWord`
-//            logger.debug("Generated $amount words in $generationTimeElapsed ms with results: ${generatedWords.map { it.simplifiedSentence }}")
-//
-//            // create map of words that already existed out of the batch (map to its word)
-//            val simplifiedWords = generatedWords.map { it.simplifiedWord }
-//            val existingWords = wordRepository.findBySimplifiedWordIn(simplifiedWords).associateBy { it.simplifiedWord }
-//
-//            // foreach word that exist in that map find their context (map to all of its contexts)
-//            val existingContextsByWord = wordContextRepository.findByWordIn(existingWords.values).groupBy { it.word }
-//
-//            // prepare batch comparison requests (word, words context sentence, generated context sentence)
-//            val contextComparisons = mutableListOf<Triple<String, String, String>>()
-//            val generatedWordToContexts = mutableMapOf<GeneratedWord, List<WordContext>>()
-//
-//            // for all generated create the word if it does not exist
-//            // while right after, if it has contexts associated to that word
-//            // add them to be evaluated for being the same context that is generated
-//            generatedWords.forEach { generatedWord ->
-//                val word = existingWords[generatedWord.simplifiedWord] ?: Word(
-//                    simplifiedWord = generatedWord.simplifiedWord,
-//                    traditionalWord = generatedWord.traditionalWord
-//                ).also { newWords.add(it) }
-//
-//                val existingContexts = existingContextsByWord[word] ?: emptyList()
-//                generatedWordToContexts[generatedWord] = existingContexts
-//
-//                existingContexts.forEach { context ->
-//                    contextComparisons.add(Triple(word.simplifiedWord, context.usageSentence.simplifiedSentence, generatedWord.simplifiedSentence))
-//                }
-//            }
-//
-//            // since words are done being altered, save them
-//            wordRepository.saveAll(newWords).also {
-//                logger.debug("Words saved to repository: ${newWords.map { it.simplifiedWord }}")
-//            }
-//
-//            // based on the collected contexts for the words, compare if they are the same
-//            // it will return in same order a boolean list, so if the first word's contexts
-//            // do not match the first entry will be false, and vice versa
-//            var gptResults: List<Boolean> = emptyList()
-//            val genTimeElapsed2 = measureTimeMillis {
-//                if (contextComparisons.isNotEmpty()) {
-//                    gptResults = generator.areWordsSameBasedOnContextBatch(contextComparisons)
-//                }
-//            }
-//            logger.debug("Checked contexts for similarity in $genTimeElapsed2 ms, with results: $gptResults")
-//            generationTimeElapsed += genTimeElapsed2
-//
-//            // again for every generated word we can now prepare the contexts
-//            // start with the word belonging to it, then the get all contexts for the word
-//            // out of those if we already have the context add to the generation count (and to-save),
-//            // otherwise, create the context and add it to the to-save list
-//            // after that we save the contexts and reset the list for the next word
-//            // finally we find if there is a translation that exists for a context
-//            // if there is not then add it (putting it in the to-save list),
-//            // after that save them and reset the list for the next word
-//            val garbageTimeElapsed = measureTimeMillis {
-//                var index = 0
-//                generatedWords.forEach { generatedWord ->
-//                    val word = existingWords[generatedWord.simplifiedWord] ?: newWords.find { it.simplifiedWord == generatedWord.simplifiedWord }!!
-//
-//                    val existingContexts = generatedWordToContexts[generatedWord] ?: emptyList()
-//
-//                    var matchedContext: WordContext? = null
-//                    for (context in existingContexts) {
-//                        logger.debug("Checking context: ${context.usageSentence}, GPT result: ${gptResults.getOrNull(index)}")
-//
-//                        val valid = gptResults.getOrNull(index)
-//                        if (valid != null && valid != false) {
-//                            matchedContext = context.copy(generationCount = context.generationCount + 1)
-//                            newContexts.add(matchedContext)
-//                            resultContexts.add(matchedContext)
-//                            logger.debug("Context matched: ${context.usageSentence}, Updated generationCount: ${matchedContext.generationCount}")
-//                            break // we already found the context exists no need to check the rest...
-//                        }
-//                        index++
-//                    }
-//
-//                    // only create a new context if no match was found
-//                    // but always update generation count at least
-//                    if (matchedContext == null) {
-//                        val newSentence = Sentence(
-//                            simplifiedSentence = generatedWord.simplifiedSentence,
-//                            traditionalSentence = generatedWord.traditionalSentence,
-//                            pinyin = generatedWord.sentencePinyin,
-//                            translation = generatedWord.sentenceTranslation
-//                        ).also { newSentences.add(it) }
-//
-//                        matchedContext = WordContext(
-//                            word = word,
-//                            pinyin = generatedWord.pinyin,
-//                            partOfSpeech = PartOfSpeech.valueOf(generatedWord.partOfSpeech.lowercase()),
-//                            usageSentence = newSentence,
-//                            generationCount = 1,
-//                            frequency = ContextFrequency.valueOf(generatedWord.usageFrequency.lowercase())
-//                        ).also { newContexts.add(it); resultContexts.add(it) }
-//                        logger.debug("Created new context for word: ${word.simplifiedWord}, context: ${matchedContext.usageSentence}")
-//                    }
-//
-//                    if (newSentences.isNotEmpty()) {
-//                        sentenceRepository.saveAll(newSentences).also {
-//                            logger.debug("Sentences saved to repository: ${newSentences.map { it.simplifiedSentence }}")
-//                            newSentences.clear() // clear the list after saving to prevent re-saving
-//                        }
-//                    }
-//
-//                    // save contexts in batch after all words have been processed
-//                    if (newContexts.isNotEmpty()) {
-//                        wordContextRepository.saveAll(newContexts).also {
-//                            logger.debug("Contexts saved to repository: ${newContexts.map { it.usageSentence }}")
-//                            newContexts.clear() // clear the list after saving to prevent re-saving
-//                        }
-//                    }
-//
-//                    // check if translation exists for the context and add it to the new translations list,
-//                    if (!wordTranslationRepository.existsByContext(matchedContext)) {
-//                        newTranslations.add(
-//                            WordTranslation(
-//                                context = matchedContext,
-//                                translation = generatedWord.translation
-//                            ).also {
-//                                logger.debug("Translation added for context: ${matchedContext.usageSentence}, translation: ${generatedWord.translation}")
-//                            }
-//                        )
-//                    }
-//
-//                    // save translations in batch after all contexts are processed
-//                    if (newTranslations.isNotEmpty()) {
-//                        wordTranslationRepository.saveAll(newTranslations).also {
-//                            logger.debug("Translations saved to repository: ${newTranslations.map { it.translation }}")
-//                            newTranslations.clear() // clear the list after saving to prevent re-saving
-//                        }
-//                    }
-//                }
-//            }
-//            logger.debug("Took garbage section of algorithm $garbageTimeElapsed ms to complete")
-//
-//            // TODO: add tagging
-//        }
-//        logger.debug("Took entire function $wholeTimeElapsed ms to complete")
-//        logger.debug("Took entire function minus bottle cap ${wholeTimeElapsed - generationTimeElapsed} ms to complete")
-//
-//        return resultContexts
-//    }
 
     fun CreateSentencesForWord(word: String): List<Sentence> {
         val generator = generators["grammar_openAi"] ?: throw Error()

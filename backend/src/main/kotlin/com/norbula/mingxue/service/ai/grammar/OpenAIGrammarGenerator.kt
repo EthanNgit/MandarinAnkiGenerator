@@ -60,11 +60,11 @@ class OpenAIGrammarGenerator(
                             "simplifiedWord": "...",
                             "traditionalWord": "...",
                             "partOfSpeech": "<one of: Noun, Pronoun, Verb, Adjective, Adverb, Preposition, Conjunction, Determiner, Classifier, Particle, Interjection>",
-                            "pinyin": "...", // use numbered pinyin such as 桌子 -> zhuo1zi3, the pinyin must be correct double check (omit tone 5 such as 椅子 -> yi3zi)
+                            "pinyin": "...", // use numbered pinyin such as 桌子 -> zhuo1zi3. ALWAYS make sure to use 5 for no tone/neutral tone such as 模糊 -> mo3hu5 or 的 -> de5. The pinyin must be correct double check.
                             "translation": "...",
                             "simplifiedSentence": "...", // simple sentence using word
                             "traditionalSentence": "...", // same sentence but traditional
-                            "sentencePinyin": "...", // pinyin of the same sentence, use numbered pinyin such as 桌子 -> zhuo1zi3, the pinyin must be correct double check (omit tone 5 such as 椅子 -> yi3zi)
+                            "sentencePinyin": "...", // pinyin of the same sentence, use numbered pinyin such as 桌子 -> zhuo1zi3, the pinyin must be correct double check, make sure to use 5 for no tone/neutral tone such as 模糊 -> mo3hu5 or 的 -> de5
                             "sentenceTranslation": "..." // translation of the sentence
                             "usageFrequency": "<one of: Frequent, Periodic, Infrequent>",
                             "tags": ["tag1", "tag2", "tag3"]  // Add tags here for searchability
@@ -152,7 +152,7 @@ class OpenAIGrammarGenerator(
                         {
                             "simplifiedSentence": "...",
                             "traditionalSentence": "...",
-                            "pinyin": "...", // use numbered pinyin such as 桌子 -> zhuo1zi3, the pinyin must be correct double check  (omit tone 5 such as 椅子 -> yi3zi)
+                            "pinyin": "...", // use numbered pinyin such as 桌子 -> zhuo1zi3. ALWAYS make sure to use 5 for no tone/neutral tone such as 模糊 -> mo3hu5 or 的 -> de5. The pinyin must be correct double check.
                             "translation": "..."
                         }
                     ]
@@ -192,7 +192,7 @@ class OpenAIGrammarGenerator(
                         {
                             "simplifiedSentence": "...",
                             "traditionalSentence": "...",
-                            "pinyin": "...", // use numbered pinyin such as 桌子 -> zhuo1zi3, the pinyin must be correct double check  (omit tone 5 such as 椅子 -> yi3zi)
+                            "pinyin": "...", // use numbered pinyin such as 桌子 -> zhuo1zi3. ALWAYS make sure to use 5 for no tone/neutral tone such as 模糊 -> mo3hu5 or 的 -> de5. The pinyin must be correct double check.
                             "translation": "..."
                         }
                     ]

@@ -57,13 +57,13 @@ func handleProcessRequest(c *gin.Context) {
 	}
 	defer engine.Close()
 
-	result, err := engine.BatchProcessWords(req.Words, req.Gender)
+	_, err = engine.BatchProcessWords(req.Words, req.Gender)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"result": result})
+	c.JSON(http.StatusCreated, gin.H{})
 }
 
 func handleGetRequest(c *gin.Context) {
