@@ -14,30 +14,31 @@ import org.springframework.web.reactive.function.client.WebClient
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-data class OpenAIResponse(
-    val choices: List<Choice>
+// DeepSeek response structure
+data class DeepSeekResponse(
+    val choices: List<DeepSeekChoice>
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-data class Choice(
-    val message: Message
+data class DeepSeekChoice(
+    val message: DeepSeekMessage
 )
 
-data class Message(
+data class DeepSeekMessage(
     val content: String // as json
 )
 
-@Service("generator_openAi")
-class OpenAIGrammarGenerator(
-    @Value("\${openai.api.key}") private val openAiApiKey: String,
+@Service("generator_deepSeek")
+class DeepSeekGrammarGenerator(
+    @Value("\${deepseek.api.key}") private val deepSeekApiKey: String,
     @Value("\${norbula.mingxue.default.generative.max.wordlist}") private val maxWordListSize: Int,
     @Value("\${norbula.mingxue.default.generative.max.worddetail}") private val maxWordDetailChunkSize: Int
 ): GrammarGenerator {
-    private val logger = LoggerFactory.getLogger(OpenAIGrammarGenerator::class.java)
+    private val logger = LoggerFactory.getLogger(DeepSeekGrammarGenerator::class.java)
 
     private val webClient = WebClient.builder()
-        .baseUrl("https://api.openai.com/v1/chat/completions")
-        .defaultHeader("Authorization", "Bearer $openAiApiKey")
+        .baseUrl("https://api.deepseek.com/v1/chat/completions")
+        .defaultHeader("Authorization", "Bearer $deepSeekApiKey")
         .defaultHeader("Content-Type", "application/json")
         .build()
 
@@ -50,7 +51,7 @@ class OpenAIGrammarGenerator(
         val requests = batches.map { batch ->
             logger.debug("THE ARRAY IS ${batch.joinToString(", ", "[", "]")}")
             val requestBody = mapOf(
-                "model" to "gpt-4o-mini",
+                "model" to "deepseek-chat",  // Use appropriate DeepSeek model
                 "messages" to listOf(
                     mapOf("role" to "system", "content" to "You only output JSON. Dont include any explanations or introductions."),
                     mapOf("role" to "user", "content" to """
@@ -79,10 +80,10 @@ class OpenAIGrammarGenerator(
             webClient.post()
                 .bodyValue(requestBody)
                 .retrieve()
-                .bodyToMono(OpenAIResponse::class.java)
+                .bodyToMono(DeepSeekResponse::class.java)
                 .map { response ->
                     val contentJson = response.choices.firstOrNull()?.message?.content ?: "[]"
-                    logger.debug("Raw GPT Response: {}", contentJson)  // Add this for debugging
+                    logger.debug("Raw DeepSeek Response: {}", contentJson)  // Add this for debugging
 
                     val jsonNode: JsonNode = jacksonObjectMapper().readTree(contentJson)
 
@@ -106,7 +107,7 @@ class OpenAIGrammarGenerator(
         val objectMapper = jacksonObjectMapper()
 
         val requestBody = mapOf(
-            "model" to "gpt-4o-mini",
+            "model" to "deepseek-chat",  // Use appropriate DeepSeek model
             "messages" to listOf(
                 mapOf("role" to "system", "content" to "You only output JSON. Dont include any explanations or introductions."),
                 mapOf("role" to "user", "content" to """
@@ -125,10 +126,10 @@ class OpenAIGrammarGenerator(
         return webClient.post()
             .bodyValue(requestBody)
             .retrieve()
-            .bodyToMono(OpenAIResponse::class.java)
+            .bodyToMono(DeepSeekResponse::class.java)
             .map { response ->
                 val contentJson = response.choices.firstOrNull()?.message?.content ?: "[]"
-                logger.debug("Raw GPT Response: {}", contentJson)
+                logger.debug("Raw DeepSeek Response: {}", contentJson)
 
                 val jsonNode: JsonNode = objectMapper.readTree(contentJson)
                 objectMapper.convertValue(jsonNode, object : TypeReference<List<String>>() {}).distinct()
@@ -141,84 +142,11 @@ class OpenAIGrammarGenerator(
             .orEmpty()
     }
 
-    override fun generateSentencesUsingWord(amount: Int, word: String): List<GeneratedSentence> {
-        val requestBody = mapOf(
-            "model" to "gpt-4o-mini",
-            "messages" to listOf(
-                mapOf("role" to "system", "content" to "You only output JSON. Dont include any explanations or introductions."),
-                mapOf("role" to "user", "content" to """
-                    Generate $amount unique sentences using mandarin. Each sentence must include or use the word "$word" in some way. Use this exact JSON array format:
-                    [
-                        {
-                            "simplifiedSentence": "...",
-                            "traditionalSentence": "...",
-                            "pinyin": "...", // use numbered pinyin such as 桌子 -> zhuo1zi3. ALWAYS make sure to use 5 for no tone/neutral tone such as 模糊 -> mo3hu5 or 的 -> de5. The pinyin must be correct double check.
-                            "translation": "..."
-                        }
-                    ]
-                """.trimIndent()),
-            "temperature" to 0.9
-            )
-        )
-
-        return try {
-            webClient.post()
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(OpenAIResponse::class.java)
-                .map { response ->
-                    val contentJson = response.choices.firstOrNull()?.message?.content ?: "[]"
-                    logger.debug("Raw GPT Response: {}", contentJson)  // Add this for debugging
-
-                    val jsonNode: JsonNode = jacksonObjectMapper().readTree(contentJson)
-
-                    jacksonObjectMapper().convertValue(jsonNode, object : TypeReference<List<GeneratedSentence>>() {})
-                }
-                .block() ?: emptyList()
-        } catch (e: Exception) {
-            println("Error calling OpenAI API: ${e.message}")
-            emptyList()
-        }
-    }
-
     override fun generateSentencesGrammarConcept(amount: Int, concept: GrammarPoint): List<GeneratedSentence> {
-        val requestBody = mapOf(
-            "model" to "gpt-4o-mini",
-            "messages" to listOf(
-                mapOf("role" to "system", "content" to "You only output JSON. Dont include any explanations or introductions."),
-                mapOf("role" to "user", "content" to """
-                    Generate $amount unique but simple sentences using mandarin. Each sentence must use the grammar concept "${concept.context.word.simplifiedWord} as used in the sentence ${concept.context.usageSentence}". Use this exact JSON array format:
-                    [
-                        {
-                            "simplifiedSentence": "...",
-                            "traditionalSentence": "...",
-                            "pinyin": "...", // use numbered pinyin such as 桌子 -> zhuo1zi3. ALWAYS make sure to use 5 for no tone/neutral tone such as 模糊 -> mo3hu5 or 的 -> de5. The pinyin must be correct double check.
-                            "translation": "..."
-                        }
-                    ]
-                """.trimIndent()),
-                "temperature" to 0.9
-            )
-        )
-
-        return try {
-            webClient.post()
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(OpenAIResponse::class.java)
-                .map { response ->
-                    val contentJson = response.choices.firstOrNull()?.message?.content ?: "[]"
-                    logger.debug("Raw GPT Response: {}", contentJson)  // Add this for debugging
-
-                    val jsonNode: JsonNode = jacksonObjectMapper().readTree(contentJson)
-
-                    jacksonObjectMapper().convertValue(jsonNode, object : TypeReference<List<GeneratedSentence>>() {})
-                }
-                .block() ?: emptyList()
-        } catch (e: Exception) {
-            println("Error calling OpenAI API: ${e.message}")
-            emptyList()
-        }
+        TODO("Not yet implemented")
     }
 
+    override fun generateSentencesUsingWord(amount: Int, word: String): List<GeneratedSentence> {
+        TODO("Not yet implemented")
+    }
 }

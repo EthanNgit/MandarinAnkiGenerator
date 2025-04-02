@@ -1,6 +1,6 @@
 package com.norbula.mingxue.service
 
-import com.norbula.mingxue.exceptions.UserDoesNotExist
+import com.norbula.mingxue.exceptions.*
 import com.norbula.mingxue.models.UserDeck
 import com.norbula.mingxue.models.UserDeckWord
 import com.norbula.mingxue.repository.UserDeckRepository
@@ -9,7 +9,6 @@ import com.norbula.mingxue.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 import java.security.InvalidParameterException
 
@@ -26,10 +25,10 @@ class DeckService(
     fun createDeck(authToken: String, deckName: String, deckTopic: String, deckSize: Int = defaultDeckSize, publicDeck: Boolean = true): UserDeck {
         // validate parameters before query
         if (deckName.length > 100) {
-            throw InvalidParameterException() // todo: add exception
+            throw InvalidDeckNameException()
         }
         if (deckTopic.length > 50) {
-            throw InvalidParameterException() // todo: add exception
+            throw InvalidDeckTopicException()
         }
 
         // get user with authToken
@@ -38,7 +37,7 @@ class DeckService(
         // get name and desc/topic and if public
         val deckNameUsed = deckRepository.existsByUserAndName(user, deckName)
         if (deckNameUsed) {
-            throw InvalidParameterException() // todo: add exception
+            throw DeckNameAlreadyExistsException()
         }
 
         // check if min amount of words already exist

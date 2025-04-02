@@ -1,5 +1,6 @@
 package com.norbula.mingxue.service
 
+import com.norbula.mingxue.exceptions.DeckDoesNotExistException
 import com.norbula.mingxue.exceptions.UserDoesNotExist
 import com.norbula.mingxue.models.UserDeck
 import com.norbula.mingxue.models.enums.PinyinType
@@ -35,7 +36,7 @@ class AnkiService(
     // TODO: add export options: includeSimplified, includeTraditional, pinyin, colors maybe?, custom css and html?, ai voice?
     fun createAnkiSQLiteDatabase(userToken: String, sqliteFile: File, deckName: String, pinyinType: PinyinType): Pair<File, MutableMap<String, ByteArray>> {
         val user = userRepository.findByAuthToken(userToken).orElseThrow { UserDoesNotExist() }
-        val deck = deckRepository.findByUserAndName(user, deckName).orElseThrow { Error("Deck does not exist") }
+        val deck = deckRepository.findByUserAndName(user, deckName).orElseThrow { DeckDoesNotExistException() }
 
         Class.forName("org.sqlite.JDBC")
         val connection = DriverManager.getConnection("jdbc:sqlite:${sqliteFile.absolutePath}")

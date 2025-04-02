@@ -21,9 +21,9 @@ data class WordContext(
     @Column(nullable = false)
     val pinyin: String,
 
-    @Column(name = "part_of_speech", nullable = false)
+    @Column(name = "part_of_speech")
     @Enumerated(EnumType.STRING)
-    val partOfSpeech: PartOfSpeech,
+    val partOfSpeech: PartOfSpeech?,
 
     @ManyToOne
     @JoinColumn(name = "sentence_id", nullable = false)

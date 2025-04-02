@@ -7,6 +7,8 @@ services:
       - MD_USER=${MD_USER}
       - MD_PASSWORD=${MD_PASSWORD}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
     volumes:
       - ./backend/serviceAccountKey.json:/config/serviceAccountKey.json:ro
       - ./backend/google_service.json:/config/google_service.json:ro

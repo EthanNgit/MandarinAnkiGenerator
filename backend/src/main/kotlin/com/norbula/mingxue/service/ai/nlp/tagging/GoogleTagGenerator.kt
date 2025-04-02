@@ -1,4 +1,4 @@
-package com.norbula.mingxue.service.ai.nlp
+package com.norbula.mingxue.service.ai.nlp.tagging
 
 import com.google.auth.oauth2.GoogleCredentials
 import org.slf4j.LoggerFactory

@@ -8,6 +8,7 @@ import com.norbula.mingxue.models.ai.grammar.GeneratedWord
 import com.norbula.mingxue.models.ai.speech.SpeechWord
 import com.norbula.mingxue.repository.*
 import com.norbula.mingxue.service.ai.grammar.GrammarGenerator
+import com.norbula.mingxue.service.ai.nlp.context.ContextChecker
 import com.norbula.mingxue.service.ai.voice.NorbulaVoiceGenerator
 import com.norbula.mingxue.service.documents.WordTaggingService
 import org.slf4j.LoggerFactory
@@ -25,7 +26,8 @@ class GenService (
     @Autowired private val sentenceRepository: SentenceRepository,
     @Autowired private val wordTaggingService: WordTaggingService,
     @Autowired private val ttsService: NorbulaVoiceGenerator,
-    @Autowired private val generators: Map<String, GrammarGenerator>
+    @Autowired private val generators: Map<String, GrammarGenerator>,
+    @Autowired private val contextCheckers: Map<String, ContextChecker>
 ) {
     private val logger = LoggerFactory.getLogger(GenService::class.java)
 
@@ -38,7 +40,8 @@ class GenService (
 
         val totalExecutionTime = measureTimeMillis {
             // 1. use a generation
-            val generator = getGenerator("grammar_openAi")
+            val generator = getGenerator("generator_gemini")
+            val contextChecker = getContextChecker("context_gemini")
 
             // 2. generate the words
             val (generatedWords, generationTime) = measure {
@@ -68,7 +71,7 @@ class GenService (
 
             // 6. Check Context Similarity via API
             val (similarityResults, similarityCheckTime) = measure {
-                checkContextSimilarityWithApi(generator, contextComparisons)
+                checkContextSimilarityWithApi(contextChecker, contextComparisons)
             }
             totalGenerationApiTime += similarityCheckTime
             logger.debug("Checked context similarity via API in $similarityCheckTime ms. Results count: ${similarityResults.size}. $loggerContext")
@@ -120,6 +123,13 @@ class GenService (
         return generators[name] ?: run {
             logger.error("Generator '$name' not found!")
             throw IllegalArgumentException("Generator '$name' not configured.")
+        }
+    }
+
+    private fun getContextChecker(name: String): ContextChecker {
+        return contextCheckers[name] ?: run {
+            logger.error("Context checker '$name' not found!")
+            throw IllegalArgumentException("Context checker '$name' not configured.")
         }
     }
 
@@ -202,11 +212,11 @@ class GenService (
     }
 
     private fun checkContextSimilarityWithApi(
-        generator: GrammarGenerator,
+        contextChecker: ContextChecker,
         contextComparisons: List<Triple<String, String, String>>
     ): List<Boolean> {
         return if (contextComparisons.isNotEmpty()) {
-            generator.areWordsSameBasedOnContextBatch(contextComparisons)
+            contextChecker.areWordsSameBasedOnContextBatch(contextComparisons)
         } else {
             emptyList()
         }
@@ -267,10 +277,10 @@ class GenService (
                 matchedContext = WordContext(
                     word = word,
                     pinyin = generatedWord.pinyin,
-                    partOfSpeech = PartOfSpeech.valueOf(generatedWord.partOfSpeech.lowercase()),
+                    partOfSpeech = PartOfSpeech.tryValueOf(generatedWord.partOfSpeech),
                     usageSentence = newSentence,
                     generationCount = 1,
-                    frequency = ContextFrequency.valueOf(generatedWord.usageFrequency.lowercase())
+                    frequency = ContextFrequency.tryValueOf(generatedWord.usageFrequency.lowercase()) ?: ContextFrequency.infrequent
                 ).also {
                     contextsToSaveOrUpdate.add(it)
                     finalResultContexts.add(it)
@@ -384,7 +394,7 @@ class GenService (
     fun CreateSentencesForGrammarConcept(conceptId: Int): List<GrammarPointSentence> {
         val concept = grammarPointRepository.findById(conceptId).orElseThrow { Error() } // TODO: add error for invalid concept
 
-        val generator = generators["grammar_openAi"] ?: throw Error()
+        val generator = generators["generator_openAi"] ?: throw Error()
 
         val generatedSentences = generator.generateSentencesGrammarConcept(5, concept)
 

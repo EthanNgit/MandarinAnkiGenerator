@@ -1,6 +1,5 @@
 package com.norbula.mingxue.service.documents
 
-import co.elastic.clients.elasticsearch._types.FieldValue
 import co.elastic.clients.json.JsonData
 import com.norbula.mingxue.models.WordDTO
 import com.norbula.mingxue.models.ai.grammar.GeneratedWord
@@ -10,12 +9,10 @@ import com.norbula.mingxue.models.documents.indexes.TagDocumentIndex
 import com.norbula.mingxue.models.documents.indexes.WordDocumentIndex
 import com.norbula.mingxue.repository.documents.TagDocumentIndexRepository
 import com.norbula.mingxue.repository.documents.WordDocumentIndexRepository
-import com.norbula.mingxue.service.ai.nlp.TagGenerator
+import com.norbula.mingxue.service.ai.nlp.tagging.TagGenerator
 import com.norbula.mingxue.service.ai.vector.EmbeddingGenerator
 import com.norbula.mingxue.repository.documents.TagDocumentRepository
 import com.norbula.mingxue.repository.documents.WordDocumentRepository
-import org.elasticsearch.script.Script
-import org.elasticsearch.search.SearchHit
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.elasticsearch.client.elc.NativeQuery
