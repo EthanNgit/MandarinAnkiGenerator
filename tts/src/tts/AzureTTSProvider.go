@@ -50,7 +50,7 @@ func NewAzureTTSProvider(languageCode, maleVoice, femaleVoice string, config TTS
 	}, nil
 }
 
-func (a *AzureTTSProvider) Process(words []Word, gender string) ([]string, error) {
+func (a *AzureTTSProvider) Process(words []Word, gender string, sentence bool) ([]string, error) {
 	var voice string
 	switch strings.ToLower(gender) {
 	case "male":
@@ -89,7 +89,13 @@ func (a *AzureTTSProvider) Process(words []Word, gender string) ([]string, error
 	// Upload each audio chunk to blob storage.
 	var urls []string
 	for i, chunk := range chunks {
-		fileName := fmt.Sprintf("tts/%d.wav", words[i].Id)
+		path := ""
+		if sentence {
+			path = "tts/sentence/"
+		} else {
+			path = "tts/word/"
+		}
+		fileName := fmt.Sprintf("%s%d.wav", path, words[i].Id)
 		url, err := a.blobDatabase.InsertTTSAudio(fileName, chunk.Data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upload chunk %d: %w", i, err)

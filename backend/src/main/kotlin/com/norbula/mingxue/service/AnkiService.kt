@@ -7,11 +7,13 @@ import com.norbula.mingxue.repository.UserDeckRepository
 import com.norbula.mingxue.repository.UserDeckWordRepository
 import com.norbula.mingxue.repository.UserRepository
 import com.norbula.mingxue.repository.WordTranslationRepository
+import com.norbula.mingxue.service.ai.voice.NorbulaVoiceGenerator
 import com.norbula.mingxue.service.pinyin.NorbulaPinyinConverter
 import jakarta.json.JsonObject
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import shaded_package.net.minidev.json.JSONObject
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -27,10 +29,11 @@ class AnkiService(
     @Autowired private val deckRepository: UserDeckRepository,
     @Autowired private val userDeckWordRepository: UserDeckWordRepository,
     @Autowired private val wordTranslationRepository: WordTranslationRepository,
-    @Autowired private val pinyinConverter: NorbulaPinyinConverter
+    @Autowired private val pinyinConverter: NorbulaPinyinConverter,
+    @Autowired private val speechGenerator: NorbulaVoiceGenerator
 )  {
     // TODO: add export options: includeSimplified, includeTraditional, pinyin, colors maybe?, custom css and html?, ai voice?
-    fun createAnkiSQLiteDatabase(userToken: String, sqliteFile: File, deckName: String, pinyinType: PinyinType) {
+    fun createAnkiSQLiteDatabase(userToken: String, sqliteFile: File, deckName: String, pinyinType: PinyinType): Pair<File, MutableMap<String, ByteArray>> {
         val user = userRepository.findByAuthToken(userToken).orElseThrow { UserDoesNotExist() }
         val deck = deckRepository.findByUserAndName(user, deckName).orElseThrow { Error("Deck does not exist") }
 
@@ -142,7 +145,7 @@ class AnkiService(
 
         println("THIS IS CALLED")
 
-        // Model configuration
+        // Model configuration - Modified to include audio field
         val modelsJson = """
         {
             "100000": {
@@ -162,17 +165,19 @@ class AnkiService(
                     {"name": "SimpleSentence", "ord": 5, "sticky": false, "rtl": false, "font": "Arial", "size": 18},
                     {"name": "TraditionalSentence", "ord": 6, "sticky": false, "rtl": false, "font": "Arial", "size": 18},
                     {"name": "SentencePinyin", "ord": 7, "sticky": false, "rtl": false, "font": "Arial", "size": 16},
-                    {"name": "SentenceTranslation", "ord": 8, "sticky": false, "rtl": false, "font": "Arial", "size": 16}
-                ],
+                    {"name": "SentenceTranslation", "ord": 8, "sticky": false, "rtl": false, "font": "Arial", "size": 16},
+                    {"name": "Audio", "ord": 9, "sticky": false, "rtl": false, "font": "Arial", "size": 16},
+                    {"name": "AudioSentence", "ord": 10, "sticky": false, "rtl": false, "font": "Arial", "size": 16}
+                ],         
                 "tmpls": [
                         {
                             "name": "Recognition",
                             "qfmt": "<div data-version=\"2\" class=\"chinese-card\"><div class=\"word-header\"><div class=\"word-container\"><span class=\"hanzi hover-trigger\">{{Simplified}} / {{Traditional}}</span><div class=\"pinyin-popup\">{{Pinyin}}</div></div></div><hr class=\"divider\"><div class=\"sentence-section\"><div class=\"sentence-container\"><p class=\"sentence hover-trigger\">{{SimpleSentence}}</p><p class=\"sentence hover-trigger\">{{TraditionalSentence}}</p><div class=\"pinyin-popup\">{{SentencePinyin}}</div></div></div></div>",
-                            "afmt": "<div data-version=\"2\" class=\"chinese-card\"><div class=\"word-header\"><div class=\"hanzi\">{{Simplified}} / {{Traditional}}</div><div class=\"pinyin\">{{Pinyin}}</div><div class=\"translation-block\"><span class=\"translation\">{{Translation}}</span><span class=\"part-of-speech\">{{PartOfSpeech}}</span></div></div><hr class=\"divider\"><div class=\"sentence-section\"><p class=\"sentence\">{{SimpleSentence}}</p><p class=\"sentence\">{{TraditionalSentence}}</p><div class=\"pinyin\">{{SentencePinyin}}</div><div class=\"sentence-translation\">{{SentenceTranslation}}</div></div></div>",
+                            "afmt": "<div data-version=\"2\" class=\"chinese-card\"><div class=\"word-header\"><div class=\"hanzi\">{{Simplified}} / {{Traditional}}</div><div class=\"pinyin\">{{Pinyin}}</div><div class=\"translation-block\"><span class=\"translation\">{{Translation}}</span><span class=\"part-of-speech\">{{PartOfSpeech}}</span></div></div><hr class=\"divider\"><div class=\"sentence-section\"><p class=\"sentence\">{{SimpleSentence}}</p><p class=\"sentence\">{{TraditionalSentence}}</p><div class=\"pinyin\">{{SentencePinyin}}</div><div class=\"sentence-translation\">{{SentenceTranslation}}</div></div><div class=\"audio-controls\">{{Audio}} {{AudioSentence}}</div></div>",
                             "ord": 0
                         }
                     ],
-                "css": ".card { font-family: \"Inter\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; font-size: 18px; text-align: center; color: #334155; background-color: #ffffff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); max-width: 600px; margin: 0 auto; line-height: 1.5; } .word-header { margin-bottom: 16px; } .word-container { position: relative; display: inline-block; cursor: help; } .hanzi { font-size: 34px; font-weight: 600; color: #1e40af; letter-spacing: 1px; transition: color 0.2s ease; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); } .hover-trigger:hover { color: #3b82f6; } .pinyin-popup { display: none; font-size: 16px; color: #64748b; background-color: #f8fafc; padding: 8px 16px; border-radius: 6px; margin-top: 8px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); position: absolute; left: 50%; transform: translateX(-50%); z-index: 10; min-width: 120px; white-space: nowrap; } .hover-trigger:hover + .pinyin-popup, .sentence-container:hover .pinyin-popup { display: block; animation: fadeIn 0.2s ease-in; } .pinyin { font-size: 18px; color: #64748b; margin-top: 8px; font-weight: 500; } .translation-block { margin: 20px 0; padding: 16px; background-color: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9; text-align: left; } .translation { font-size: 18px; color: #0369a1; font-weight: 500; display: inline-block; } .part-of-speech { font-size: 14px; color: #94a3b8; margin-left: 8px; font-style: italic; display: inline-block; } .divider { border: 0; height: 1px; background: linear-gradient(to right, transparent, #cbd5e1, transparent); margin: 24px 0; } .sentence-section { background-color: #f8fafc; border-radius: 8px; padding: 20px; margin-top: 16px; } .sentence-container { position: relative; display: block; cursor: help; margin-bottom: 12px; } .sentence { font-size: 18px; line-height: 1.6; margin: 12px 0; color: #334155; padding: 8px; text-align: left; transition: color 0.2s ease; } .sentence-translation { font-size: 16px; color: #64748b; font-style: italic; margin-top: 12px; text-align: left; line-height: 1.5; background-color: rgba(226, 232, 240, 0.5); padding: 10px; border-radius: 6px; } @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px) translateX(-50%); } to { opacity: 1; transform: translateY(0) translateX(-50%); } } .nightMode .card { background-color: #1e293b; color: #e2e8f0; } .nightMode .hanzi { color: #60a5fa; } .nightMode .pinyin-popup, .nightMode .sentence-section { background-color: #334155; border-color: #475569; color: #cbd5e1; } .nightMode .translation-block { background-color: #0f172a; border-left-color: #3b82f6; } .nightMode .translation { color: #60a5fa; } .nightMode .part-of-speech, .nightMode .pinyin { color: #94a3b8; } .nightMode .sentence { color: #e2e8f0; } .nightMode .sentence-translation { color: #cbd5e1; background-color: rgba(51, 65, 85, 0.5); } .nightMode .divider { background: linear-gradient(to right, transparent, #475569, transparent); }"
+                "css": ".card { font-family: \"Inter\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; font-size: 18px; text-align: center; color: #334155; background-color: #ffffff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); max-width: 600px; margin: 0 auto; line-height: 1.5; } .word-header { margin-bottom: 16px; } .word-container { position: relative; display: inline-block; cursor: help; } .hanzi { font-size: 34px; font-weight: 600; color: #1e40af; letter-spacing: 1px; transition: color 0.2s ease; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); } .hover-trigger:hover { color: #3b82f6; } .pinyin-popup { display: none; font-size: 16px; color: #64748b; background-color: #f8fafc; padding: 8px 16px; border-radius: 6px; margin-top: 8px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); position: absolute; left: 50%; transform: translateX(-50%); z-index: 10; min-width: 120px; white-space: nowrap; } .hover-trigger:hover + .pinyin-popup, .sentence-container:hover .pinyin-popup { display: block; animation: fadeIn 0.2s ease-in; } .pinyin { font-size: 18px; color: #64748b; margin-top: 8px; font-weight: 500; } .translation-block { margin: 20px 0; padding: 16px; background-color: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9; text-align: left; } .translation { font-size: 18px; color: #0369a1; font-weight: 500; display: inline-block; } .part-of-speech { font-size: 14px; color: #94a3b8; margin-left: 8px; font-style: italic; display: inline-block; } .divider { border: 0; height: 1px; background: linear-gradient(to right, transparent, #cbd5e1, transparent); margin: 24px 0; } .sentence-section { background-color: #f8fafc; border-radius: 8px; padding: 20px; margin-top: 16px; } .sentence-container { position: relative; display: block; cursor: help; margin-bottom: 12px; } .sentence { font-size: 18px; line-height: 1.6; margin: 12px 0; color: #334155; padding: 8px; text-align: left; transition: color 0.2s ease; } .sentence-translation { font-size: 16px; color: #64748b; font-style: italic; margin-top: 12px; text-align: left; line-height: 1.5; background-color: rgba(226, 232, 240, 0.5); padding: 10px; border-radius: 6px; } .audio-controls { margin: 10px 0; } .audio-controls audio { display: block; width: 100%; max-width: 300px; margin: 0 auto; } @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px) translateX(-50%); } to { opacity: 1; transform: translateY(0) translateX(-50%); } } .nightMode .card { background-color: #1e293b; color: #e2e8f0; } .nightMode .hanzi { color: #60a5fa; } .nightMode .pinyin-popup, .nightMode .sentence-section { background-color: #334155; border-color: #475569; color: #cbd5e1; } .nightMode .translation-block { background-color: #0f172a; border-left-color: #3b82f6; } .nightMode .translation { color: #60a5fa; } .nightMode .part-of-speech, .nightMode .pinyin { color: #94a3b8; } .nightMode .sentence { color: #e2e8f0; } .nightMode .sentence-translation { color: #cbd5e1; background-color: rgba(51, 65, 85, 0.5); } .nightMode .divider { background: linear-gradient(to right, transparent, #475569, transparent); }"
             }
         }
         """.trimIndent()
@@ -291,6 +296,10 @@ class AnkiService(
             else               -> sentencePinyinList
         }
 
+        // Create a map to store media references for the APKG file
+        val mediaMap = mutableMapOf<String, ByteArray>()
+        val mediaIndex = mutableMapOf<Int, String>()
+
         // Now process each deck word and insert the note.
         deckWords.forEachIndexed { index, word ->
             val wordTranslation = wordTranslationRepository.findByContext(word.wordContext)
@@ -299,6 +308,35 @@ class AnkiService(
             // Generate IDs
             val noteId = System.currentTimeMillis() + index
             val cardId = noteId + 1
+
+// Generate word audio file name and reference
+            val audioFileName = "word_${word.wordContext.id}.mp3"
+            val audioRef = "[sound:$audioFileName]"
+
+            // Fetch word audio using the old API signature
+            val audioBytes = speechGenerator.getTTSFile(word.wordContext.id, false)
+
+            if (audioBytes != null) {
+                mediaMap[audioFileName] = audioBytes
+                mediaIndex[index] = audioFileName
+                println("Audio for word ${word.wordContext.id} retrieved, size: ${audioBytes.size}")
+            } else {
+                println("Audio for word ${word.wordContext.id} is null!")
+            }
+
+            // Generate sentence audio file name and reference
+            val sentenceAudioFileName = "sentence_${word.wordContext.id}.mp3"
+            val sentenceAudioRef = "[sound:$sentenceAudioFileName]"
+
+            // Fetch sentence audio using the new API signature (second parameter true)
+            val sentenceAudioBytes = speechGenerator.getTTSFile(word.wordContext.id, true)
+
+            if (sentenceAudioBytes != null) {
+                mediaMap[sentenceAudioFileName] = sentenceAudioBytes
+                println("Sentence audio for word ${word.wordContext.id} retrieved, size: ${sentenceAudioBytes.size}")
+            } else {
+                println("Sentence audio for word ${word.wordContext.id} is null!")
+            }
 
             // Build the fields to be stored. Notice that for the pinyin fields we use the converted results.
             val fields = listOf(
@@ -310,7 +348,9 @@ class AnkiService(
                 word.wordContext.usageSentence.simplifiedSentence,
                 word.wordContext.usageSentence.traditionalSentence,
                 convertedSentencePinyin[index],
-                word.wordContext.usageSentence.translation ?: ""
+                word.wordContext.usageSentence.translation ?: "",
+                audioBytes?.let { audioRef } ?: "",  // Include audio reference if available
+                sentenceAudioBytes?.let { sentenceAudioRef } ?: ""
             )
 
             // Insert Note (using your prepared statement 'insertNote').
@@ -357,11 +397,16 @@ class AnkiService(
         }
 
         connection.close()
+
+        // Return the media map for the APKG creation
+        return Pair(sqliteFile, mediaMap)
     }
 
     // Create an APKG file (zip archive) that contains the collection.anki2 file.
-    fun createApkgFile(sqliteFile: File, deckName: String): File {
+    fun createApkgFile(databaseInfo: Pair<File, Map<String, ByteArray>>, deckName: String): File {
+        val (sqliteFile, mediaMap) = databaseInfo
         val apkgFile = File(sqliteFile.parentFile, "$deckName.apkg")
+
         ZipOutputStream(FileOutputStream(apkgFile)).use { zipOut ->
             // Add collection.anki2
             FileInputStream(sqliteFile).use { fis ->
@@ -370,13 +415,32 @@ class AnkiService(
                 zipOut.closeEntry()
             }
 
-            // Add empty media file
+            // Create media mapping
+            val mediaJson = mediaMap.entries.mapIndexed { index, entry ->
+                "\"$index\": \"${entry.key}\""
+            }.joinToString(",", "{", "}")
+
+            // Add media mapping file
             zipOut.putNextEntry(ZipEntry("media"))
-            zipOut.write("{}".toByteArray())
+            zipOut.write(mediaJson.toByteArray())
             zipOut.closeEntry()
 
-            println("THIS IS CALLED3")
+            // Add each media file
+            mediaMap.entries.forEachIndexed { index, entry ->
+                zipOut.putNextEntry(ZipEntry("$index"))
+                ByteArrayInputStream(entry.value).copyTo(zipOut)
+                zipOut.closeEntry()
+            }
+
+            println("Created APKG with ${mediaMap.size} audio files")
         }
         return apkgFile
+    }
+
+    // Main function to create Anki deck with audio
+    fun createAnkiDeckWithAudio(userToken: String, outputDir: File, deckName: String, pinyinType: PinyinType): File {
+        val sqliteFile = File(outputDir, "collection.anki2")
+        val databaseInfo = createAnkiSQLiteDatabase(userToken, sqliteFile, deckName, pinyinType)
+        return createApkgFile(databaseInfo, deckName)
     }
 }

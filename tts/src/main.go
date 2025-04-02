@@ -18,8 +18,11 @@ type ProcessRequest struct {
 	Words  []tts.Word `json:"words"`
 }
 
-func main() {
+type BatchAudioRequest struct {
+	IDs []string `json:"ids" binding:"required,min=1"`
+}
 
+func main() {
 	engine, err := NewEngine("azure", nil)
 	if err != nil {
 		panic(err)
@@ -28,14 +31,17 @@ func main() {
 
 	router := gin.Default()
 
-	router.POST("/api/v1/process", handleProcessRequest)
-	router.GET("/api/v1/get/:id", handleGetRequest)
+	router.POST("/api/v1/process/word", handleProcessRequest)
+	router.POST("/api/v1/process/sentence", handleProcessRequest)
+	router.GET("/api/v1/get/:id/word", handleGetRequest)
+	router.GET("/api/v1/get/:id/sentence", handleGetRequest)
 
 	fmt.Println("[TTS-debug] Starting server")
 	router.Run(":8081")
 }
 
 func handleProcessRequest(c *gin.Context) {
+	isSentenceReq := strings.Contains(c.Request.URL.Path, "sentence")
 	var req ProcessRequest
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -57,7 +63,7 @@ func handleProcessRequest(c *gin.Context) {
 	}
 	defer engine.Close()
 
-	_, err = engine.BatchProcessWords(req.Words, req.Gender)
+	_, err = engine.BatchProcessWords(req.Words, req.Gender, isSentenceReq)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -67,6 +73,7 @@ func handleProcessRequest(c *gin.Context) {
 }
 
 func handleGetRequest(c *gin.Context) {
+	isSentenceReq := strings.Contains(c.Request.URL.Path, "sentence")
 	// Get ID from URL path parameter instead of JSON body
 	id := c.Param("id")
 
@@ -79,7 +86,7 @@ func handleGetRequest(c *gin.Context) {
 	}
 
 	// Get the audio data
-	audioData, err := blobDB.GetTTSAudio(id)
+	audioData, err := blobDB.GetTTSAudio(id, isSentenceReq)
 	if err != nil {
 		if isNotFoundError(err) { // Implement this error check
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Audio file not found"})

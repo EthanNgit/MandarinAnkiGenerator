@@ -68,8 +68,8 @@ func NewEngine(provider string, config *tts.TTSConfig) (*Engine, error) {
 	return e, nil
 }
 
-func (e *Engine) BatchProcessWords(words []tts.Word, gender string) ([]string, error) {
-	return e.ttsProvider.Process(words, gender)
+func (e *Engine) BatchProcessWords(words []tts.Word, gender string, sentence bool) ([]string, error) {
+	return e.ttsProvider.Process(words, gender, sentence)
 }
 
 func (e *Engine) Close() {

@@ -42,7 +42,11 @@ class testController(
         logger.debug("createWords: method called")
         val generatedWords = genService.CreateWords(amount, topic)
 
-        logger.debug("createWords: Generated $amount words about $topic with values ${generatedWords.map { it -> it.word.simplifiedWord }}")
+        logger.debug(
+            "createWords: Generated {} words about {} with values {}",
+            amount,
+            topic,
+            generatedWords.map { it.word.simplifiedWord })
         return ResponseEntity(generatedWords, HttpStatus.CREATED)
     }
 
@@ -85,16 +89,15 @@ class testController(
     fun exportDeck(@RequestBody deck: ExportDeckRequest): ResponseEntity<Resource> {
         val token = getAuthTokenFromJwt(SecurityContextHolder.getContext())
 
-        // Create a temporary directory for generating files
-        val tempDir = Files.createTempDirectory("ankiExport").toFile()
-        tempDir.deleteOnExit()
+        val tempDir = Files.createTempDirectory("anki_export").toFile()
 
-        // Create the SQLite collection file for Anki
-        val sqliteFile = File(tempDir, "collection.anki2")
-        ankiService.createAnkiSQLiteDatabase(token, sqliteFile, deck.deckName, deck.pinyinType)
-
-        // Package the SQLite file into an .apkg (zip archive)
-        val apkgFile = ankiService.createApkgFile(sqliteFile, deck.deckName)
+        // Create the Anki deck with audio
+        val apkgFile = ankiService.createAnkiDeckWithAudio(
+            userToken = token,
+            outputDir = tempDir,
+            deckName = deck.deckName,
+            pinyinType = deck.pinyinType
+        )
 
         // Return the .apkg file as a downloadable resource
         val resource = FileSystemResource(apkgFile)

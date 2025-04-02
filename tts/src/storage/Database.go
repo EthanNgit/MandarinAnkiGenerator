@@ -127,12 +127,18 @@ func (db *AzureBlobDatabase) InsertTTSAudio(filename string, data []byte) (strin
 }
 
 // Add this method to your AzureBlobDatabase struct
-func (db *AzureBlobDatabase) GetTTSAudio(id string) ([]byte, error) {
+func (db *AzureBlobDatabase) GetTTSAudio(id string, sentence bool) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	// Construct blob path: "tts/{id}.wav"
-	blobName := fmt.Sprintf("tts/%s.wav", id)
+	path := ""
+	if sentence {
+		path = "tts/sentence/"
+	} else {
+		path = "tts/word/"
+	}
+	blobName := fmt.Sprintf("%s%s.wav", path, id)
 
 	// Download the blob
 	resp, err := db.serviceClient.DownloadStream(ctx, db.containerName, blobName, nil)
@@ -149,7 +155,6 @@ func (db *AzureBlobDatabase) GetTTSAudio(id string) ([]byte, error) {
 	return downloadedData, nil
 }
 
-// Helper functions
 func isContainerExistsError(err error) bool {
 	var storageErr *azcore.ResponseError
 	if errors.As(err, &storageErr) {

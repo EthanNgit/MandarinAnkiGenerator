@@ -17,5 +17,5 @@ type TTSConfig struct {
 }
 
 type TTSProvider interface {
-	Process(words []Word, gender string) ([]string, error)
+	Process(words []Word, gender string, sentence bool) ([]string, error)
 }

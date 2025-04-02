@@ -41,7 +41,7 @@ func NewGoogleTTSProvider(languageCode, maleVoice, femaleVoice string, config TT
 	}, nil
 }
 
-func (g *GoogleTTSProvider) Process(words []Word, gender string) ([]string, error) {
+func (g *GoogleTTSProvider) Process(words []Word, gender string, sentence bool) ([]string, error) {
 	if g.accessToken == "" {
 		token, err := g.getAccessToken()
 		if err != nil {
@@ -98,7 +98,13 @@ func (g *GoogleTTSProvider) Process(words []Word, gender string) ([]string, erro
 
 	var urls []string
 	for i, chunk := range chunks {
-		fileName := fmt.Sprintf("tts/%d.wav", words[i].Id)
+		path := ""
+		if sentence {
+			path = "tts/sentence/"
+		} else {
+			path = "tts/word/"
+		}
+		fileName := fmt.Sprintf("%s%d.wav", path, words[i].Id)
 		url, err := g.blobDatabase.InsertTTSAudio(fileName, chunk.Data)
 		if err != nil {
 			return nil, fmt.Errorf("upload failed %d: %w", i, err)

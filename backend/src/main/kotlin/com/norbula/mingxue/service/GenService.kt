@@ -63,7 +63,7 @@ class GenService (
 
             // 5. Save New Words (if any)
             val savedNewWords = saveNewWords(wordsToCreate)
-            val allWordsMap = existingWordsMap + savedNewWords.associateBy { it.simplifiedWord } // Combine existing and new
+            val allWordsMap = existingWordsMap + savedNewWords.associateBy { it.simplifiedWord }
             logger.debug("Saved ${savedNewWords.size} new words. $loggerContext")
 
             // 6. Check Context Similarity via API
@@ -74,7 +74,7 @@ class GenService (
             logger.debug("Checked context similarity via API in $similarityCheckTime ms. Results count: ${similarityResults.size}. $loggerContext")
 
             // 7. Process Contexts, Sentences, Translations (Build lists for batch saving)
-            val processedEntitiesResult = processEntities( // <-- Use updated function
+            val processedEntitiesResult = processEntities(
                 generatedWords,
                 allWordsMap,
                 generatedWordToExistingContextsMap,
@@ -82,22 +82,25 @@ class GenService (
             )
             logger.debug(
                 "Processed entities: ${processedEntitiesResult.contextsToSaveOrUpdate.size} contexts, " +
-                        "${processedEntitiesResult.sentencesToSave.size} sentences." // Log updated info
+                        "${processedEntitiesResult.sentencesToSave.size} sentences."
             )
 
             // Add processed contexts to the final result list
             resultContexts.addAll(processedEntitiesResult.resultContexts)
 
             // 8. Save Sentences and Contexts (Contexts become persistent)
-            saveProcessedEntities(processedEntitiesResult) // <-- Saves sentences & contexts
+            saveProcessedEntities(processedEntitiesResult)
             logger.debug("Saved processed sentences and contexts to the database. $loggerContext")
 
             // 9. Process and Save Translations (Now safe to check existsByContext)
-            processAndSaveTranslations(processedEntitiesResult.contextsForTranslationCheck) // <-- New step
+            processAndSaveTranslations(processedEntitiesResult.contextsForTranslationCheck)
             logger.debug("Processed and saved translations. $loggerContext")
 
-            // 10. Generate TTS files for the contexts
-            generateTtsForContexts(resultContexts)
+            // 10. Generate TTS files for the contexts words
+            generateTtsForContexts(resultContexts, false)
+
+            // 11. Generate TTS files for the contexts sentences
+            generateTtsForContexts(resultContexts, true)
 
             // TODO: Add tagging logic here if needed
 
@@ -111,7 +114,7 @@ class GenService (
         )
 
         return resultContexts
-        }
+    }
 
     private fun getGenerator(name: String): GrammarGenerator {
         return generators[name] ?: run {
@@ -221,7 +224,7 @@ class GenService (
         allWordsMap: Map<String, Word>,
         generatedWordToExistingContextsMap: Map<GeneratedWord, List<WordContext>>,
         similarityResults: List<Boolean>
-    ): ProcessedEntitiesResult { // <-- Updated return type
+    ): ProcessedEntitiesResult {
         val contextsToSaveOrUpdate = mutableListOf<WordContext>()
         val sentencesToSave = mutableListOf<Sentence>()
         val contextsForTranslationCheck = mutableListOf<Pair<WordContext, GeneratedWord>>()
@@ -305,7 +308,6 @@ class GenService (
     private fun processAndSaveTranslations(contextsAndGenerations: List<Pair<WordContext, GeneratedWord>>) {
         if (contextsAndGenerations.isEmpty()) {
             logger.debug("No contexts provided for translation processing.")
-            return
         }
 
         val translationsToSave = mutableListOf<WordTranslation>()
@@ -334,21 +336,26 @@ class GenService (
         }
     }
 
-    private fun generateTtsForContexts(contexts: List<WordContext>) {
+    private fun generateTtsForContexts(contexts: List<WordContext>, sentences: Boolean) {
         val validContexts = contexts.filter { it.id != null }
         if (validContexts.size < contexts.size) {
             logger.warn("${contexts.size - validContexts.size} contexts had no ID and were skipped for TTS generation.")
         }
+
         val speechWords = validContexts.map { context ->
             SpeechWord(
                 contextId = context.id!!,
-                text = context.word.simplifiedWord,
-                pronunciation = context.pinyin
+                text = if (!sentences) context.word.simplifiedWord else context.usageSentence.simplifiedSentence,
+                pronunciation = if (!sentences) context.pinyin else ""
             )
         }
         if (speechWords.isNotEmpty()) {
             try {
-                ttsService.generateTTSFiles(speechWords)
+                if (!sentences) {
+                    ttsService.generateTTSWordFiles(speechWords)
+                } else {
+                    ttsService.generateTTSSentenceFiles(speechWords)
+                }
                 logger.debug("TTS files generated for ${speechWords.size} contexts.")
             } catch (e: Exception) {
                 logger.error("Failed to generate TTS files: ${e.message}", e)

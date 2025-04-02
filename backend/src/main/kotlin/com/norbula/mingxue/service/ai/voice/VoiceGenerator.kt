@@ -1,6 +1,5 @@
 package com.norbula.mingxue.service.ai.voice
 
-import com.norbula.mingxue.models.ai.grammar.GeneratedWord
 import com.norbula.mingxue.models.ai.speech.SpeechWord
 
 data class TTSRequest(
@@ -10,5 +9,7 @@ data class TTSRequest(
 )
 
 interface VoiceGenerator {
-    fun generateTTSFiles(words: List<SpeechWord>)
+    fun generateTTSWordFiles(words: List<SpeechWord>)
+    fun generateTTSSentenceFiles(words: List<SpeechWord>)
+    fun getTTSFile(id: Int,  sentence: Boolean): ByteArray?
 }
