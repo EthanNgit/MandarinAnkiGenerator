@@ -173,8 +173,8 @@ class AnkiService(
                 "tmpls": [
                         {
                             "name": "Recognition",
-                            "qfmt": "<div data-version=\"2\" class=\"chinese-card\"><div class=\"word-header\"><div class=\"word-container\"><span class=\"hanzi hover-trigger\">{{Simplified}} / {{Traditional}}</span><div class=\"pinyin-popup\">{{Pinyin}}</div></div></div><hr class=\"divider\"><div class=\"sentence-section\"><div class=\"sentence-container\"><p class=\"sentence hover-trigger\">{{SimpleSentence}}</p><p class=\"sentence hover-trigger\">{{TraditionalSentence}}</p><div class=\"pinyin-popup\">{{SentencePinyin}}</div></div></div></div>",
-                            "afmt": "<div data-version=\"2\" class=\"chinese-card\"><div class=\"word-header\"><div class=\"hanzi\">{{Simplified}} / {{Traditional}}</div><div class=\"pinyin\">{{Pinyin}}</div><div class=\"translation-block\"><span class=\"translation\">{{Translation}}</span><span class=\"part-of-speech\">{{PartOfSpeech}}</span></div></div><hr class=\"divider\"><div class=\"sentence-section\"><p class=\"sentence\">{{SimpleSentence}}</p><p class=\"sentence\">{{TraditionalSentence}}</p><div class=\"pinyin\">{{SentencePinyin}}</div><div class=\"sentence-translation\">{{SentenceTranslation}}</div></div><div class=\"audio-controls\">{{Audio}} {{AudioSentence}}</div></div>",
+                            "qfmt": "<div data-version=\"2\" class=\"chinese-card\"><div class=\"word-header\"><div class=\"word-container\"><span class=\"hanzi hover-trigger\">{{Simplified}}{{#Traditional}} / {{Traditional}}{{/Traditional}}</span><div class=\"pinyin-popup\">{{Pinyin}}</div></div></div><hr class=\"divider\"><div class=\"sentence-section\"><div class=\"sentence-container\"><p class=\"sentence hover-trigger\">{{SimpleSentence}}{{#TraditionalSentence}}<br>{{TraditionalSentence}}{{/TraditionalSentence}}</p><div class=\"pinyin-popup\">{{SentencePinyin}}</div></div></div></div>",
+                            "afmt": "<div data-version=\"2\" class=\"chinese-card\"><div class=\"word-header\"><div class=\"hanzi\">{{Simplified}}{{#Traditional}} / {{Traditional}}{{/Traditional}}</div><div class=\"pinyin\">{{Pinyin}}</div><div class=\"translation-block\"><span class=\"translation\">{{Translation}}</span><span class=\"part-of-speech\">{{PartOfSpeech}}</span></div></div><hr class=\"divider\"><div class=\"sentence-section\"><p class=\"sentence\">{{SimpleSentence}}{{#TraditionalSentence}}<br>{{TraditionalSentence}}{{/TraditionalSentence}}</p><div class=\"pinyin\">{{SentencePinyin}}</div><div class=\"sentence-translation\">{{SentenceTranslation}}</div></div><div class=\"audio-controls\">{{Audio}} {{AudioSentence}}</div></div>",
                             "ord": 0
                         }
                     ],
@@ -339,15 +339,23 @@ class AnkiService(
                 println("Sentence audio for word ${word.wordContext.id} is null!")
             }
 
+            val simplifiedWord = word.wordContext.word.simplifiedWord
+            val traditionalWord = if (simplifiedWord == word.wordContext.word.traditionalWord) ""
+            else word.wordContext.word.traditionalWord
+
+            val simpleSentence = word.wordContext.usageSentence.simplifiedSentence
+            val traditionalSentence = if (simpleSentence == word.wordContext.usageSentence.traditionalSentence) ""
+            else word.wordContext.usageSentence.traditionalSentence
+
             // Build the fields to be stored. Notice that for the pinyin fields we use the converted results.
             val fields = listOf(
-                word.wordContext.word.simplifiedWord,
-                word.wordContext.word.traditionalWord,
+                simplifiedWord,
+                traditionalWord,
                 convertedWordPinyin[index],
                 wordTranslation.translation,
                 word.wordContext.partOfSpeech,
-                word.wordContext.usageSentence.simplifiedSentence,
-                word.wordContext.usageSentence.traditionalSentence,
+                simpleSentence,
+                traditionalSentence,
                 convertedSentencePinyin[index],
                 word.wordContext.usageSentence.translation ?: "",
                 audioBytes?.let { audioRef } ?: "",  // Include audio reference if available
