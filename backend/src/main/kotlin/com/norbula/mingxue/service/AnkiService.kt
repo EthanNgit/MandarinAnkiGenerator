@@ -2,7 +2,6 @@ package com.norbula.mingxue.service
 
 import com.norbula.mingxue.exceptions.DeckDoesNotExistException
 import com.norbula.mingxue.exceptions.UserDoesNotExist
-import com.norbula.mingxue.models.UserDeck
 import com.norbula.mingxue.models.enums.PinyinType
 import com.norbula.mingxue.repository.UserDeckRepository
 import com.norbula.mingxue.repository.UserDeckWordRepository
@@ -10,10 +9,8 @@ import com.norbula.mingxue.repository.UserRepository
 import com.norbula.mingxue.repository.WordTranslationRepository
 import com.norbula.mingxue.service.ai.voice.NorbulaVoiceGenerator
 import com.norbula.mingxue.service.pinyin.NorbulaPinyinConverter
-import jakarta.json.JsonObject
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import shaded_package.net.minidev.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream

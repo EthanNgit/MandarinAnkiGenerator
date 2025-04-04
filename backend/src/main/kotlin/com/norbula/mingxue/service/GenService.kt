@@ -8,9 +8,8 @@ import com.norbula.mingxue.models.ai.grammar.GeneratedWord
 import com.norbula.mingxue.models.ai.speech.SpeechWord
 import com.norbula.mingxue.repository.*
 import com.norbula.mingxue.service.ai.grammar.GrammarGenerator
-import com.norbula.mingxue.service.ai.nlp.context.ContextChecker
+import com.norbula.mingxue.service.ai.nlp.ContextChecker
 import com.norbula.mingxue.service.ai.voice.NorbulaVoiceGenerator
-import com.norbula.mingxue.service.documents.WordTaggingService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -24,7 +23,6 @@ class GenService (
     @Autowired private val grammarPointRepository: GrammarPointRepository,
     @Autowired private val grammarPointSentenceRepository: GrammarPointSentenceRepository,
     @Autowired private val sentenceRepository: SentenceRepository,
-    @Autowired private val wordTaggingService: WordTaggingService,
     @Autowired private val ttsService: NorbulaVoiceGenerator,
     @Autowired private val generators: Map<String, GrammarGenerator>,
     @Autowired private val contextCheckers: Map<String, ContextChecker>

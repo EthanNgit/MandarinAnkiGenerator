@@ -7,7 +7,6 @@ import com.norbula.mingxue.models.enums.PinyinType
 import com.norbula.mingxue.service.AnkiService
 import com.norbula.mingxue.service.DeckService
 import com.norbula.mingxue.service.GenService
-import com.norbula.mingxue.service.documents.WordTaggingService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.FileSystemResource
@@ -29,7 +28,6 @@ import java.nio.file.Files
 class testController(
     @Autowired private val genService: GenService,
     @Autowired private val deckService: DeckService,
-    @Autowired private val wordTaggingService: WordTaggingService,
     @Autowired private val ankiService: AnkiService
 ) {
     private val logger = LoggerFactory.getLogger(testController::class.java)
@@ -48,17 +46,6 @@ class testController(
             topic,
             generatedWords.map { it.word.simplifiedWord })
         return ResponseEntity(generatedWords, HttpStatus.CREATED)
-    }
-
-    @GetMapping("/find")
-    fun findWords(
-        @RequestParam query: String = "",
-        @RequestParam pos: String = ""
-    ): ResponseEntity<List<WordDTO>> {
-        logger.debug("findWords: method called")
-        val foundWords = wordTaggingService.searchWords(query, pos)
-
-        return ResponseEntity(foundWords, HttpStatus.OK)
     }
 
     data class CreateDeckRequest(

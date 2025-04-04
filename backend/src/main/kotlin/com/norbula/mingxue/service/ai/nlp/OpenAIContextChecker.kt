@@ -1,4 +1,4 @@
-package com.norbula.mingxue.service.ai.nlp.context
+package com.norbula.mingxue.service.ai.nlp
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.norbula.mingxue.service.ai.grammar.OpenAIGrammarGenerator

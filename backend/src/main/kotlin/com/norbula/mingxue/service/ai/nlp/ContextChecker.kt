@@ -1,4 +1,4 @@
-package com.norbula.mingxue.service.ai.nlp.context
+package com.norbula.mingxue.service.ai.nlp
 
 interface ContextChecker {
     fun isSameWordBasedOnContext(word: String, str1: String, str2: String): Boolean
