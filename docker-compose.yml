@@ -87,7 +87,7 @@ services:
       - azurite_data:/data
     environment:
       - AZURITE_ACCOUNTS=devstoreaccount1:Eby8vdM02xNOcqFevkbZzGvAafMNCxF+GB0Wm8w5RkWIFhZ4IRHxuRHIFw==
-    command: "azurite-blob --blobHost 0.0.0.0 --loose"
+    command: "azurite-blob --blobHost 0.0.0.0 --loose --location /data"
 volumes:
   mariadb_data:
   azurite_data:

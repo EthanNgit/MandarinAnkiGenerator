@@ -3,6 +3,7 @@ package com.norbula.mingxue.controller
 import com.norbula.mingxue.models.UserDeck
 import com.norbula.mingxue.models.WordContext
 import com.norbula.mingxue.models.WordDTO
+import com.norbula.mingxue.models.enums.CharacterType
 import com.norbula.mingxue.models.enums.PinyinType
 import com.norbula.mingxue.service.AnkiService
 import com.norbula.mingxue.service.DeckService
@@ -70,6 +71,7 @@ class testController(
     data class ExportDeckRequest(
         val deckName: String = "Deck 1",
         val pinyinType: PinyinType = PinyinType.marked,
+        val characterType: CharacterType = CharacterType.both,
     )
 
     @PostMapping("/export")
@@ -83,7 +85,8 @@ class testController(
             userToken = token,
             outputDir = tempDir,
             deckName = deck.deckName,
-            pinyinType = deck.pinyinType
+            pinyinType = deck.pinyinType,
+            characterType = deck.characterType
         )
 
         // Return the .apkg file as a downloadable resource
