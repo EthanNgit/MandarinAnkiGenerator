@@ -45,15 +45,6 @@ Different learners prefer different pinyin styles. This service makes that easy:
 
 ---
 
-## 💡 Why Use This?
-
-- ✅ Learn Mandarin faster with audio + visual input
-- ✅ Customize decks to *your* interests and goals
-- ✅ Plug-and-play with popular AI models
-- ✅ Run everything locally with Docker Compose — no messy installs
-
----
-
 ## 🛠️ Todo
 
 1. Add client interface
